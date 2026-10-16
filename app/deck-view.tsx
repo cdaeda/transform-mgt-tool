@@ -10,13 +10,15 @@ import { TOOL_SLIDES, type ToolShot, type ToolSlide } from "@/lib/tool-slides";
 import { ComebackChart, useRounds } from "./comeback";
 import { DragonMark } from "./dragon-mark";
 import { useOverview } from "./overview-store";
-import { Ladder, useInvestorCase } from "./outlook";
+import { Ladder, WhyPrice, useInvestorCase } from "./outlook";
+import { whyPriceSlide } from "@/lib/outlook";
 
 type Year = { revenue: number; ebitda: number; net: number; cash: number };
 type Overview = {
   year: number;
   certificate: { caps: number[]; price: number[]; rank: string };
   kpis: { revenue: number; ebitda: number; net: number; cash: number };
+  sim?: { net: number[] };
   plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number };
   teams: { team: number; years: Year[] }[];
 };
@@ -56,6 +58,30 @@ function Bars({ items }: { items: { label: string; value: number; color: string 
 function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc; rounds: Parameters<typeof ComebackChart>[0]["rounds"] }) {
   const i = o.year - 1;
   const ic = useInvestorCase(0);
+  if (kind === "turnaround") {
+    // Year 1 -> Year 2 -> entering Year 3: the workbook's market cap and net profit, the snapshots in between.
+    const years = Array.from({ length: Math.max(3, o.year + 1) }, (_, j) => j + 1).slice(0, Math.max(3, o.year + 1));
+    return (
+      <ol className="grid gap-3 relative" style={{ gridTemplateColumns: `repeat(${years.length}, minmax(0, 1fr))` }}>
+        <span className="absolute top-5 left-[12%] right-[12%] h-1 rounded bg-gradient-to-r from-red-500 via-[var(--gold)] to-green-600" aria-hidden />
+        {years.map((y) => {
+          const cap = o.certificate.caps[y - 1], net = o.sim?.net?.[y - 1], ahead = y > o.year;
+          const snaps = rounds.filter((r) => r.year === y);
+          return (
+            <li key={y} className="relative text-center space-y-1">
+              <span className={`mx-auto grid place-items-center w-11 h-11 rounded-full font-display text-white shadow ${ahead ? "bg-indigo-700" : cap !== undefined && cap < 0 ? "bg-red-600" : "bg-green-700"}`}>Y{y}</span>
+              <p className="eyebrow text-zinc-500">{y === 1 ? "The low point" : ahead ? "Entering now" : "The recovery"}</p>
+              {!ahead && cap !== undefined && <p className={`font-display text-2xl tabular-nums ${cap < 0 ? "text-red-600" : "text-green-700"}`}>{capM(cap)}</p>}
+              {ahead && <p className="font-display text-2xl text-indigo-700">The dragon sheds</p>}
+              {!ahead && net !== undefined && <p className="text-sm text-zinc-600">net profit {money(net)}</p>}
+              {snaps.length > 0 && <p className="text-xs text-zinc-500">{snaps.map((r) => r.label).join(" · ")}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+  if (kind === "why_price" && ic) return <WhyPrice rows={ic.run(ic.saved).rows} o={ic.saved} />;
   if ((kind === "earnings" || kind === "acquisition") && ic) {
     const { rows, roi } = ic.run(ic.saved);
     const ps = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
@@ -125,6 +151,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
 type Jump = { label: string; hash: string; sel: string };
 const LINKS: Record<string, Jump[]> = {
   title: [{ label: "Share certificate", hash: "dashboard", sel: '[aria-label="Market cap"]' }, { label: "Our core strategy", hash: "dashboard", sel: '[aria-label="Our core strategy"]' }],
+  turnaround: [{ label: "Turnaround in snapshots", hash: "capital/investor-relations", sel: '[aria-label="Rising from the ashes"]' }, { label: "Our valuation now", hash: "finance/what-if", sel: '[aria-label="Our valuation"]' }],
   progress: [{ label: "Rising from the ashes", hash: "capital/investor-relations", sel: '[aria-label="Rising from the ashes"]' }],
   achievements: [{ label: "Decisions by team member", hash: "activity", sel: '[aria-label="Major decisions by team member"]' }, { label: "Our cards", hash: "cards", sel: '[aria-label="Sections"] + .tab-panel' }],
   results: [{ label: "Net profit & borrowing ability", hash: "dashboard", sel: '[aria-label="Net profit and borrowing ability"]' }],
@@ -132,6 +159,7 @@ const LINKS: Record<string, Jump[]> = {
   roadmap: [{ label: "Horizon tuner", hash: "dashboard", sel: '[aria-label="Horizon tuner"]' }, { label: "Strategy knob", hash: "finance/what-if", sel: '[aria-label="Strategy knob"]' }],
   deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/simulator", sel: '[aria-label="Simulator"]' }],
   earnings: [{ label: "Earnings outlook", hash: "capital/investor-case", sel: '[aria-label="Investor case"]' }],
+  why_price: [{ label: "Why the sale price", hash: "capital/investor-case", sel: '[aria-label="Why the sale price"]' }],
   acquisition: [{ label: "Investor case", hash: "capital/investor-case", sel: '[aria-label="From revenue to return"]' }, { label: "Exit scenario", hash: "finance/simulator", sel: '[aria-label="Exit scenario"]' }],
   ask: [{ label: "$50B goal path", hash: "dashboard", sel: '[aria-label*="B by Year"]' }, { label: "Borrowing plans", hash: "finance/borrowing", sel: '[aria-label="Borrowing plans"]' }, { label: "Comparable valuations", hash: "capital/comparables", sel: '[aria-label="Comparable valuations"]' }],
 };
@@ -191,7 +219,10 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
     }, () => setDeck(null));
     fetch("/api/strategy-doc").then((r) => r.json()).then(setDoc, () => {});
   }, []);
-  const slides = deck?.content.slides ?? [];
+  // The deck's own slides, plus the built-in "Why $60B" slide right after the acquisition slide.
+  const icDeck = useInvestorCase(0);
+  const why = icDeck && icDeck.saved.saleYear ? whyPriceSlide(icDeck.run(icDeck.saved).rows, icDeck.saved) : null;
+  const slides = (deck?.content.slides ?? []).flatMap((sl) => (sl.kind === "acquisition" && why ? [sl, { ...why, speaker: sl.speaker } as unknown as typeof sl] : [sl]));
   const count = slides.length ? slides.length + TOOL_SLIDES.length : 0; // appendix: how we use the tool
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -261,7 +292,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind.replace("_", " ")}</p>
                     <h2 className="text-3xl sm:text-4xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  <div className={`grid gap-8 items-center ${data && ["progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ""}`}>
+                  <div className={`grid gap-8 items-center ${data && ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : (sl.kind as string) === "why_price" ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
                     <ul className="space-y-3 text-xl">
                       {sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}
                     </ul>

@@ -23,8 +23,11 @@ importantly, outline your transformation roadmap and how you will deliver on you
 Keep it short. Make it visual." Investors, analysts and the business press are in the room; the goal is to
 convince capital markets there is a big valuation here (our path to $50B), and to turn our Sell ratings.
 
-THE STORY IS A COMEBACK - "rising from the ashes". We start from a bad baseline (the low point in our
-round snapshots) and there is nowhere to go but up. Tell it optimistically and confidently to the board:
+THE STORY IS A TURNAROUND: we took over Flying Dragon at its low point and TURNED IT AROUND IN OUR FIRST TWO
+YEARS; we are now ENTERING YEAR 3. Year 1 was the low point and the fixes (the BUST cut to 5% with a card, the
+first Sell-to-Buy upgrade, the new strategy); Year 2 is the recovery the workbook shows; Year 3 is where the
+dragon sheds. We start from a bad baseline (the low point in our round snapshots) and there is nowhere to go
+but up. Tell it optimistically and confidently to the board:
 own the low point in one line, then put the weight on what we've already changed, the progress since the
 low, and the momentum of the plan. Positive framing, never spin: every number must be real.
 
@@ -35,9 +38,13 @@ terrestrial link to space mobility (space + fintech). Tell a convincing tale for
 markets: the earnings outlook (EPS, share price at our P/E, DPS by year), how the dividend strategy and
 buybacks drive the share price, and the return on investment step by step. The title slide headline should
 carry "The dragon is shedding" (Flying Dragon -> Terralink); use that exact phrase, not "shedding a skin". Use the EARNINGS OUTLOOK figures below exactly;
-say clearly that later years are the team's assumptions, not forecasts.
+say clearly that later years are the team's assumptions, not forecasts. The acquisition message: we keep the
+core human brains and go AI-native; the legacy infrastructure goes with the buyer, and Terralink is rebuilt from
+scratch on a modern, AI-first model.
 
-Ten slides, one each: title; progress (the comeback - from the low point through each round snapshot to
+Eleven slides, one each: title; turnaround (the timeline of the turnaround, year by year: Year 1 the low
+point and what we did, Year 2 the recovery with its numbers, Year 3 what we're entering now - one bullet per
+year, leading with the market cap move); progress (the comeback - from the low point through each round snapshot to
 now, and the momentum it shows); achievements (past 12 months - only things we actually did per the app's
 cards, strategy, financing and tasks; [placeholders] where unknown); results (the year's financials from
 the workbook - revenue, EBITDA, net profit, cash; own the BUST and any errors honestly, keep revenue,

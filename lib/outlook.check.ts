@@ -1,6 +1,6 @@
 // node lib/outlook.check.ts - earnings, EPS/price/DPS, buybacks, the sale and the investor's return add up.
 import assert from "node:assert/strict";
-import { defaultOutlook, outlook } from "./outlook.ts";
+import { bridge, defaultBridge, defaultOutlook, outlook } from "./outlook.ts";
 
 const base = { now: 1, vehicleRev: 100e6, vehicleCost: 60e6, exploreRev: 0, exploreCost: 0, costBase: 10e6, interest: 5e6, depreciation: 5e6, oneTime: 0, shares: 1e9 };
 const o = defaultOutlook(1, 3);
@@ -30,4 +30,10 @@ assert.ok(r.rows[2].cashPerShare > 25); // Terralink holds 40% of ~$54B on ~0.7B
 const wb = outlook({ ...base, vehicleRevY: [100e6, 150e6, 150e6, 0, 0, 0, 0, 0, 0, 0], vehicleCostY: [60e6, 60e6, 60e6, 0, 0, 0, 0, 0, 0, 0] }, o);
 assert.equal(wb.rows[1].vehicles, 150e6);
 assert.equal(Math.round(r.rows[2].valuation), Math.round(r.rows[2].earningsValue + r.rows[2].cashValue)); // value = earnings x P/E + cash
+// Why $60B: parts add up, the premium sits on top, the gap is what's left to argue.
+const bx = bridge({ vehicles: 100e6, vehicleCost: 40e6, nexus: 200e6 }, 20, { ...defaultBridge(15), nexusMultiple: 10, customers: 1e6, valuePerCustomer: 1000, networkB: 5, premiumPct: 20 });
+assert.equal(bx.parts[0].v, 60e6 * 0.8 * 15); // vehicle earnings x P/E
+assert.equal(bx.standalone, 720e6 + 2e9 + 1e9 + 5e9);
+assert.equal(bx.total, bx.standalone * 1.2);
+assert.equal(bx.gap, 60e9 - bx.total);
 console.log("outlook ok");

@@ -64,6 +64,13 @@ THE CASE (from the team's handoff; treat unconfirmed items as assumptions)
     strategy can be a tailwind; goal: drive up the share price for our investors. The team's outlook
     assumptions live in Capital > Investor case. Confirm with the facilitators that a third-party sale is
     allowed in the game.
+  * NARRATIVE (2026-10-16): we turned Flying Dragon around in our first two years and are now entering Year 3
+    (Year 1: the low point and the fixes; Year 2: the recovery; Year 3: the dragon is shedding).
+  * ACQUISITION MESSAGE: we keep the core human brains (the people, their judgment and know-how) and go
+    AI-native. The buyer gets the legacy infrastructure (plants, old systems) - we don't need it; Terralink is
+    rebuilt from scratch on a modern, AI-first model. The $60B is argued as a sum of the parts the buyer gets
+    (vehicle earnings, the Dragon Nexus platform, the loyal customer base and network, a strategic premium):
+    Capital > Investor case > "Why $60B".
   * Retired name: the earlier thesis was "Dragon Drive" (neutral AI driving platform). Treat older
     notes, cards and strategies that say Dragon Drive as the previous plan; Dragon Nexus replaces it.
 - Team: ${teamLine()} - the CFO also covers investor relations. Frameworks: WIN (Transform,

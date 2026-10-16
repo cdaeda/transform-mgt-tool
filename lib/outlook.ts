@@ -32,6 +32,7 @@ export type Outlook = {
   specialDivPct: number; // % of the net proceeds paid out as a special dividend
   buybackPct: number; // % of the net proceeds used to buy back shares
   costBaseKeptPct: number; // % of the cost base Terralink keeps after the sale
+  bridge?: Bridge; // why the sale price: sum of the parts
 };
 
 export type OutlookBase = {
@@ -132,4 +133,50 @@ export function outlookText(b: OutlookBase, o: Outlook) {
   const m = (n: number) => `$${(n / 1e6).toFixed(1)}M`, p = (n: number) => `$${n.toFixed(2)}`;
   return `P/E ${o.pe}x, regular payout ${o.payout}%, entry price ${p(o.entryPrice)}.\n` + rows.map((r) => `Y${r.year} ${r.company}${r.year === b.now ? " (workbook)" : " (team assumption)"}: revenue ${m(r.revenue)} [vehicles ${m(r.vehicles)}, Dragon Nexus ${m(r.nexus)} = ${o.takeRate}% of ${m(r.gmv)} GMV, space & fintech ${m(r.other)}], EBITDA ${m(r.ebitda)}, net profit ${m(r.net)}, shares ${(r.shares / 1e6).toFixed(0)}M, EPS ${p(r.eps)}, share price ${p(r.price)}, DPS ${p(r.dps)}${r.events.length ? ` - ${r.events.map((e) => e.label).join("; ")}` : ""}`).join("\n") +
     (roi ? `\nINVESTOR RETURN: entry ${p(o.entryPrice)} -> final share price ${p(roi.endPrice)} + dividends ${p(roi.dividends)} = ${roi.multiple.toFixed(1)}x, ${roi.annualPct.toFixed(0)}%/yr over ${roi.years} years.` : "");
+}
+
+// Why $60B: a sum of the parts the buyer gets, each with its own method, against the target price.
+// Every input is the team's assumption (comparables guide the multiples); the gap is shown, not hidden.
+export type Bridge = {
+  targetB: number;
+  vehiclePe: number; // x the vehicle business's after-tax earnings in the sale year
+  nexusMultiple: number; // x Dragon Nexus revenue (EV / revenue) in the sale year
+  customers: number; // loyal customers the buyer inherits
+  valuePerCustomer: number; // $ lifetime value per customer
+  networkB: number; // $B for the contributor network and data assets
+  premiumPct: number; // strategic / control premium on the standalone sum
+};
+export const defaultBridge = (pe: number): Bridge => ({ targetB: 60, vehiclePe: pe, nexusMultiple: 0, customers: 0, valuePerCustomer: 0, networkB: 0, premiumPct: 0 });
+
+export function bridge(row: { vehicles: number; vehicleCost: number; nexus: number }, tax: number, x: Bridge) {
+  const vehicleEarnings = Math.max(0, row.vehicles - row.vehicleCost) * (1 - tax / 100);
+  const parts = [
+    { k: "Vehicle business", how: `after-tax earnings × ${x.vehiclePe} P/E`, v: vehicleEarnings * x.vehiclePe },
+    { k: "Dragon Nexus platform", how: `revenue × ${x.nexusMultiple} EV/revenue`, v: row.nexus * x.nexusMultiple },
+    { k: "Customer base", how: `${x.customers.toLocaleString()} customers × $${x.valuePerCustomer.toLocaleString()}`, v: x.customers * x.valuePerCustomer },
+    { k: "Network & data assets", how: "contributor network, the 4D map and data", v: x.networkB * 1e9 },
+  ];
+  const standalone = parts.reduce((s, p) => s + p.v, 0);
+  const premium = (standalone * x.premiumPct) / 100;
+  const total = standalone + premium;
+  return { parts: [...parts, { k: "Strategic premium", how: `${x.premiumPct}% on top: control and synergies`, v: premium }], standalone, total, gap: x.targetB * 1e9 - total };
+}
+
+// The built-in "Why $60B" slide, inserted after the deck's acquisition slide (no speaker notes, so the
+// 3-minute timing is unchanged). Bullets carry the message; the bridge is the visual.
+export function whyPriceSlide(rows: ReturnType<typeof outlook>["rows"], o: Outlook) {
+  const x = o.bridge ?? defaultBridge(o.pe);
+  const row = rows.find((r) => r.year === o.saleYear) ?? rows[rows.length - 1];
+  const b = bridge(row, o.tax, x);
+  const m = (n: number) => (Math.abs(n) >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : `$${(n / 1e6).toFixed(0)}M`);
+  return {
+    kind: "why_price", headline: `Why $${x.targetB}B: the buyer gets a working business, we keep the brains`, notes: "",
+    bullets: [
+      "The buyer gets the vehicle business, its plants and legacy systems, Dragon Nexus and the loyal customers who love our UX",
+      `${NEW_NAME} keeps the core human brains and rebuilds from scratch, AI-native, with none of the legacy infrastructure`,
+      `Sum of the parts: ${b.parts.filter((p) => p.v > 0).map((p) => `${p.k} ${m(p.v)}`).join(" + ") || "[set the bridge in Capital > Investor case]"} = ${m(b.total)}`,
+      b.gap > 0 ? `${m(b.gap)} still to argue: strategic value beyond the standalone parts` : `${m(-b.gap)} above the $${x.targetB}B ask`,
+    ],
+    bridge: b,
+  };
 }

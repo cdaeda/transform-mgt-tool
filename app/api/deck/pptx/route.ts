@@ -7,7 +7,7 @@ import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
 import { listRounds } from "@/lib/rounds";
 import { getSnapshot } from "@/lib/snapshot";
-import { defaultOutlook, outlook, outlookBaseFrom, type Outlook } from "@/lib/outlook";
+import { defaultOutlook, outlook, outlookBaseFrom, whyPriceSlide, type Outlook } from "@/lib/outlook";
 import { TOOL_SLIDES, type ToolShot } from "@/lib/tool-slides";
 import type { StrategyDocT } from "@/lib/strategy-doc";
 
@@ -41,7 +41,10 @@ export async function GET() {
   pptx.title = deck.title;
   pptx.company = "Flying Dragon";
 
-  deck.slides.forEach((s, k) => {
+  // The built-in "Why $60B" slide goes right after the acquisition slide.
+  const why = out.saleYear ? whyPriceSlide(ol.rows, out) : null;
+  const all = deck.slides.flatMap((s) => (s.kind === "acquisition" && why ? [s, { ...why, speaker: s.speaker } as unknown as typeof s] : [s]));
+  all.forEach((s, k) => {
     const slide = pptx.addSlide();
     const secs = Math.round((s.notes.trim().split(/\s+/).length / 170) * 60);
     slide.addNotes(`${who(s.speaker)} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}\n\n${s.notes}`);
@@ -58,7 +61,7 @@ export async function GET() {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
     slide.addText(s.kind.replace("_", " ").toUpperCase(), { x: 0.6, y: 0.35, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
     slide.addText(s.headline, { x: 0.6, y: 0.7, w: 12.1, h: 1.1, fontFace: FONT, fontSize: 28, color: INK, bold: true, valign: "top" });
-    const visual = ["progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(s.kind);
+    const visual = ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask", "why_price"].includes(s.kind);
     slide.addText(s.bullets.map((b) => ({ text: b, options: { bullet: { code: "25B8" }, breakLine: true } })), {
       x: 0.6, y: 2.0, w: visual ? 5.6 : 12.1, h: 4.6, fontFace: FONT, fontSize: 17, color: INK, valign: "top", paraSpaceAfter: 10,
     });
@@ -89,6 +92,39 @@ export async function GET() {
         { label: "Net profit", v: y.net, color: HUE.H3 },
         { label: "Cash", v: y.cash, color: GOLD },
       ], 2.2);
+    if (s.kind === "turnaround") {
+      const yrs = Array.from({ length: Math.max(3, st.current_year + 1) }, (_, j) => j + 1);
+      const cw = W / yrs.length;
+      slide.addShape(pptx.ShapeType.line, { x: X + cw / 2, y: 2.45, w: W - cw, h: 0, line: { color: GOLD, width: 4 } });
+      yrs.forEach((y, j) => {
+        const yr = snap.years[y - 1], ahead = y > st.current_year, cx = X + j * cw;
+        const col = ahead ? "4338CA" : yr && yr.cap < 0 ? RED : "15803D";
+        slide.addShape(pptx.ShapeType.ellipse, { x: cx + cw / 2 - 0.35, y: 2.1, w: 0.7, h: 0.7, fill: { color: col }, line: { color: col } });
+        slide.addText(`Y${y}`, { x: cx + cw / 2 - 0.35, y: 2.1, w: 0.7, h: 0.7, fontFace: FONT, fontSize: 14, bold: true, color: "FFFFFF", align: "center", valign: "middle" });
+        const snaps = rounds.filter((r) => r.year === y).map((r) => r.label).join(" · ");
+        slide.addText([
+          { text: `${y === 1 ? "THE LOW POINT" : ahead ? "ENTERING NOW" : "THE RECOVERY"}\n`, options: { fontSize: 9, bold: true, color: GREY } },
+          { text: ahead ? "The dragon sheds\n" : `${money((yr?.cap ?? 0) * 1e6)}\n`, options: { fontSize: 18, bold: true, color: col } },
+          ...(ahead ? [] : [{ text: `net profit ${money(yr?.net ?? 0)}\n`, options: { fontSize: 11, color: INK } }]),
+          ...(snaps ? [{ text: snaps, options: { fontSize: 9, color: GREY } }] : []),
+        ], { x: cx, y: 2.95, w: cw - 0.1, h: 2.4, fontFace: FONT, align: "center", valign: "top" });
+      });
+    }
+    if ((s.kind as string) === "why_price" && why) {
+      const b = why.bridge, target = (out.bridge?.targetB ?? 60) * 1e9, max = Math.max(target, b.total) * 1.05;
+      const colors = [HUE.H1, HUE.H2, HUE.H3, "7C6AA8", GOLD];
+      let x0 = X;
+      b.parts.forEach((p, j) => {
+        const w = (Math.max(0, p.v) / max) * W;
+        if (w > 0.01) slide.addShape(pptx.ShapeType.rect, { x: x0, y: 2.1, w, h: 0.6, fill: { color: colors[j] }, line: { color: colors[j] } });
+        x0 += w;
+        slide.addText([{ text: `${p.k}\n`, options: { fontSize: 10, color: GREY, bold: true } }, { text: money(p.v), options: { fontSize: 16, bold: true, color: INK } }, { text: `\n${p.how}`, options: { fontSize: 9, color: GREY } }],
+          { x: X + (j % 2) * (W / 2), y: 3.0 + Math.floor(j / 2) * 1.0, w: W / 2 - 0.1, h: 0.95, fontFace: FONT, valign: "top" });
+      });
+      if (b.gap > 0) slide.addShape(pptx.ShapeType.rect, { x: x0, y: 2.1, w: (b.gap / max) * W, h: 0.6, fill: { color: "F6D5D7" }, line: { color: RED, dashType: "dash" } });
+      slide.addShape(pptx.ShapeType.line, { x: X + (target / max) * W, y: 1.95, w: 0, h: 0.9, line: { color: INK, width: 2 } });
+      slide.addText(`$${(target / 1e9).toFixed(0)}B`, { x: X + (target / max) * W - 0.5, y: 1.65, w: 1, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: INK, align: "center" });
+    }
     if (s.kind === "earnings") {
       bars(ol.rows.map((r) => ({ label: `Year ${r.year}${r.year === st.current_year ? "" : "*"}`, v: r.net, color: HUE.H2 })), 2.0);
       const top = 2.0 + ol.rows.length * 0.95 + 0.1;
@@ -142,7 +178,7 @@ export async function GET() {
   // Appendix: how we use the Mgt Tool (screenshots; not part of the 3-minute talk).
   TOOL_SLIDES.forEach((t, j) => {
     const slide = pptx.addSlide();
-    const k = deck.slides.length + j + 1;
+    const k = all.length + j + 1;
     slide.addNotes("Appendix: not part of the 3:00. Show if asked how we run the company.");
     slide.background = { color: "FFFFFF" };
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });

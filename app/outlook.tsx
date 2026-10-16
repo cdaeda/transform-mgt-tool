@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { DIVIDEND_PRESETS, NEW_NAME, defaultOutlook, outlook, type Outlook, type OutlookBase, type OutlookRow } from "@/lib/outlook";
+import { DIVIDEND_PRESETS, NEW_NAME, bridge, defaultBridge, defaultOutlook, outlook, type Bridge, type Outlook, type OutlookBase, type OutlookRow } from "@/lib/outlook";
+import { useEffect, useState } from "react";
 import { refreshOverview, useOverview } from "./overview-store";
 
 type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] } };
@@ -45,6 +45,65 @@ export function Ladder({ r, roi, o, className = "grid gap-2 sm:grid-cols-4 lg:gr
         </li>
       ))}
     </ol>
+  );
+}
+
+const PART_COLOR = ["var(--core)", "var(--growth)", "var(--explore)", "#7c6aa8", "var(--gold)"];
+
+// Why the buyer pays the price: the parts they get, valued one by one, against the target. Also the deck slide.
+export function WhyPrice({ rows, o, onChange }: { rows: OutlookRow[]; o: Outlook; onChange?: (b: Bridge) => void }) {
+  const [comps, setComps] = useState<{ company: string; ev_revenue: number | null }[]>([]);
+  useEffect(() => void fetch("/api/comps").then((r) => r.json()).then((x) => Array.isArray(x) && setComps(x.filter((c) => c.ev_revenue)), () => {}), []);
+  const x = o.bridge ?? defaultBridge(o.pe);
+  const row = rows.find((r) => r.year === o.saleYear) ?? rows[rows.length - 1];
+  const b = bridge(row, o.tax, x);
+  const target = x.targetB * 1e9, max = Math.max(target, b.total) * 1.05;
+  const set = (p: Partial<Bridge>) => onChange?.({ ...x, ...p });
+  const num = (v: number, f: (n: number) => void, label: string, step = 1, w = "w-20") => (
+    <input type="number" step={step} value={v} aria-label={label} onChange={(e) => f(Number(e.target.value) || 0)} disabled={!onChange}
+      className={`${w} rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1 py-0.5 text-right tabular-nums text-sm`} />
+  );
+  // Where each segment of the bar starts (cumulative %).
+  const widths = b.parts.map((p) => (Math.max(0, p.v) / max) * 100);
+  const starts = widths.map((_, i) => widths.slice(0, i).reduce((a, w) => a + w, 0));
+  const end = widths.reduce((a, w) => a + w, 0);
+  return (
+    <section className="rounded-lg bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 p-3 space-y-3" aria-label="Why the sale price">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-lg">Why ${x.targetB}B: what the buyer gets</h3>
+        <p className={`text-sm font-semibold ${b.gap > 0 ? "text-red-600" : "text-green-700 dark:text-green-400"}`}>{money(b.total)} built up{b.gap > 0 ? ` · ${money(b.gap)} still to argue` : ` · ${money(-b.gap)} above the target`}</p>
+      </div>
+      <div className="relative h-10 rounded bg-zinc-100 dark:bg-zinc-800 overflow-hidden" aria-hidden>
+        {b.parts.map((p, i) => <span key={p.k} className="absolute inset-y-0" style={{ left: `${starts[i]}%`, width: `${widths[i]}%`, background: PART_COLOR[i] }} title={`${p.k} ${money(p.v)}`} />)}
+        {b.gap > 0 && <span className="absolute inset-y-0 bg-[repeating-linear-gradient(45deg,#d2353f33_0_6px,transparent_6px_12px)]" style={{ left: `${end}%`, width: `${(b.gap / max) * 100}%` }} />}
+        <span className="absolute inset-y-0 w-0.5 bg-zinc-900 dark:bg-white" style={{ left: `${(target / max) * 100}%` }} />
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-5 text-sm">
+        {b.parts.map((p, i) => (
+          <li key={p.k} className="rounded border border-zinc-200 dark:border-zinc-800 p-2">
+            <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: PART_COLOR[i] }} />{p.k}</p>
+            <p className="font-display text-xl tabular-nums">{money(p.v)}</p>
+            <p className="text-xs text-zinc-500">{p.how}</p>
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-2 sm:grid-cols-2 text-sm">
+        <p className="rounded bg-amber-50 dark:bg-amber-950/30 p-2"><b>The buyer gets:</b> the vehicle business and its plants, the legacy systems, the Dragon Nexus platform, and the loyal customers who love our UX.</p>
+        <p className="rounded bg-indigo-50 dark:bg-indigo-950/30 p-2"><b>We keep:</b> the core human brains. {NEW_NAME} is rebuilt from scratch, AI-native, with none of the legacy infrastructure.</p>
+      </div>
+      {onChange && (
+        <div className="flex flex-wrap gap-x-4 gap-y-2 items-center text-sm">
+          <label className="flex items-center gap-1.5">Target ${num(x.targetB, (n) => set({ targetB: n }), "Target price", 1, "w-16")}B</label>
+          <label className="flex items-center gap-1.5">Vehicle P/E {num(x.vehiclePe, (n) => set({ vehiclePe: n }), "Vehicle P/E", 1, "w-16")}×</label>
+          <label className="flex items-center gap-1.5">Nexus EV/revenue {num(x.nexusMultiple, (n) => set({ nexusMultiple: n }), "Nexus multiple", 0.5, "w-16")}×</label>
+          {comps.length > 0 && <span className="text-xs text-zinc-500 flex flex-wrap gap-1 items-center">comps:{comps.slice(0, 5).map((c) => <button key={c.company} onClick={() => set({ nexusMultiple: Math.round(c.ev_revenue! * 10) / 10 })} className="rounded-full border border-zinc-300 dark:border-zinc-700 px-2">{c.company} {c.ev_revenue!.toFixed(1)}×</button>)}</span>}
+          <label className="flex items-center gap-1.5">Customers {num(x.customers, (n) => set({ customers: n }), "Customers", 1000, "w-28")} × ${num(x.valuePerCustomer, (n) => set({ valuePerCustomer: n }), "Value per customer", 100, "w-20")}</label>
+          <label className="flex items-center gap-1.5">Network & data ${num(x.networkB, (n) => set({ networkB: n }), "Network value", 0.5, "w-16")}B</label>
+          <label className="flex items-center gap-1.5">Strategic premium {num(x.premiumPct, (n) => set({ premiumPct: n }), "Premium", 5, "w-16")} %</label>
+          <span className="text-xs text-zinc-500 basis-full">Valued on Year {row.year} figures (the sale year): vehicle revenue {money(row.vehicles)}, Dragon Nexus revenue {money(row.nexus)}. Every multiple and count is a team assumption; the comparables guide them.</span>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -131,12 +190,13 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
         <div className="flex flex-wrap gap-2">
           <button onClick={() => ask(`${summary}\n\nPropose a defensible set of outlook assumptions: vehicle revenue growth, Dragon Nexus GMV by year and take rate, Nexus costs, ${NEW_NAME} (space and fintech) revenue and cost after the sale, a dividend strategy (none, moderate or aggressive) and buybacks to drive the share price, the P/E investors would pay (use our comparable valuations), an entry price for new investors, and the sale year, price ($50-60B) and split of proceeds. Mark every number as an assumption and say which to confirm with the facilitators.`)}
             className="rounded-md px-3 py-1.5 text-sm font-semibold border border-amber-600 text-amber-800 dark:text-amber-300">✨ Propose assumptions</button>
-          <button onClick={() => ask(`${summary}\n\nWrite the compelling, honest investor story for the board and capital markets: "The dragon is shedding" - Flying Dragon sells the vehicle + Dragon Nexus business (the network effect and the UX our loyal customers love) for $50-60B, repays debt, returns cash through a special dividend and buybacks, and launches ${NEW_NAME}, the terrestrial link to space mobility (space + fintech). Walk the return step by step (EPS, share price, DPS, total return), why a strategic buyer pays the price, how dividends and buybacks drive the share price, the risks and what must be true. No invented facts; [placeholders] where we have no number.`)}
+          <button onClick={() => ask(`${summary}\n\nWrite the compelling, honest investor story for the board and capital markets: "The dragon is shedding" - Flying Dragon sells the vehicle + Dragon Nexus business (the network effect and the UX our loyal customers love) for $50-60B, repays debt, returns cash through a special dividend and buybacks, and launches ${NEW_NAME}, the terrestrial link to space mobility (space + fintech). Make the acquisition message clear: we keep the core human brains and go AI-native; the buyer takes the legacy infrastructure we no longer need, and ${NEW_NAME} is rebuilt from scratch on a modern, AI-first model. Walk the return step by step (EPS, share price, DPS, total return), why a strategic buyer pays the price, how dividends and buybacks drive the share price, the risks and what must be true. No invented facts; [placeholders] where we have no number.`)}
             className="rounded-md px-3 py-1.5 text-sm font-semibold bg-amber-600 text-white">✨ Write the investor story</button>
         </div>
       </div>
 
       <ValuationPath rows={rows} o={o} game={ic.game} />
+      {o.saleYear > 0 && <WhyPrice rows={rows} o={o} onChange={(b) => set({ bridge: b })} />}
       <Ladder r={last} roi={roi} o={o} />
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
