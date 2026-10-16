@@ -106,13 +106,13 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
 type Jump = { label: string; hash: string; sel: string };
 const LINKS: Record<string, Jump[]> = {
   title: [{ label: "Share certificate", hash: "dashboard", sel: '[aria-label="Market cap"]' }, { label: "Our core strategy", hash: "dashboard", sel: '[aria-label="Our core strategy"]' }],
-  progress: [{ label: "Rising from the ashes", hash: "finance/investor-relations", sel: '[aria-label="Rising from the ashes"]' }],
+  progress: [{ label: "Rising from the ashes", hash: "capital/investor-relations", sel: '[aria-label="Rising from the ashes"]' }],
   achievements: [{ label: "Decisions by team member", hash: "activity", sel: '[aria-label="Major decisions by team member"]' }, { label: "Our cards", hash: "cards", sel: '[aria-label="Sections"] + .tab-panel' }],
   results: [{ label: "Net profit & borrowing ability", hash: "dashboard", sel: '[aria-label="Net profit and borrowing ability"]' }],
   market_cap: [{ label: "Market cap thermometer", hash: "dashboard", sel: '[aria-label="Market cap thermometer"]' }, { label: "Rating goal", hash: "capital/analyst-ratings", sel: '[aria-label="Rating goal"]' }],
   roadmap: [{ label: "Horizon tuner", hash: "dashboard", sel: '[aria-label="Horizon tuner"]' }, { label: "Strategy knob", hash: "finance/what-if", sel: '[aria-label="Strategy knob"]' }],
-  deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/what-if", sel: '[aria-label="Simulator"]' }],
-  ask: [{ label: "$50B goal path", hash: "dashboard", sel: '[aria-label*="B by Year"]' }, { label: "Borrowing plans", hash: "capital/plan-strategies", sel: '[aria-label="Borrowing plans"]' }],
+  deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/simulator", sel: '[aria-label="Simulator"]' }],
+  ask: [{ label: "$50B goal path", hash: "dashboard", sel: '[aria-label*="B by Year"]' }, { label: "Borrowing plans", hash: "finance/borrowing", sel: '[aria-label="Borrowing plans"]' }, { label: "Comparable valuations", hash: "capital/comparables", sel: '[aria-label="Comparable valuations"]' }],
 };
 const SHOT_LINKS: Record<string, Jump> = {
   "copilot-workbook-audit": { label: "Copilot", hash: "dashboard", sel: '[aria-label="Copilot"]' },

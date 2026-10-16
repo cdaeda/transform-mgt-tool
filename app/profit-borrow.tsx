@@ -12,7 +12,7 @@ const money = (n: number) => {
 
 // The team's two headline numbers (from the notes): what we make, revenue − expenses, and what we can
 // borrow, 10 × revenue ÷ 2, less what's already drawn. Shown on Dashboard, Capital and Finance.
-export function ProfitBorrow({ version }: { version: number }) {
+export function ProfitBorrow({ version, plans = false }: { version: number; plans?: boolean }) {
   const o = useOverview<O>(version);
   const p = o?.data?.plan;
   if (!p || p.net === undefined) return <div className="game-card h-28 animate-pulse" aria-busy="true" />;
@@ -36,7 +36,7 @@ export function ProfitBorrow({ version }: { version: number }) {
         <p className="text-xs text-zinc-500 mt-1">The workbook&rsquo;s own cap (L227, 10-year BM profit ÷ 2) is {money(p.bmProfit10y / 2)}. Confirm which rule the facilitator applies. New debt also needs the lead lender&rsquo;s consent.</p>
       </div>
     </section>
-    <BorrowPlans version={version} />
+    {plans ? <BorrowPlans version={version} /> : <a href="#finance/borrowing" className="inline-block text-sm font-semibold underline">What to borrow, and where it goes →</a>}
     </div>
   );
 }

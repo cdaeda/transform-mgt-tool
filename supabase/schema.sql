@@ -252,3 +252,25 @@ alter table cards add column if not exists drawn_year int;
 alter table cards add column if not exists drawn_round int;
 -- Borrowing / capital suggestions: where the money would be spent.
 alter table financing_ideas add column if not exists uses jsonb not null default '[]';
+
+-- Comparable valuations for investors (researched live, each with its date and source).
+create table if not exists comps (
+  id bigint primary key generated always as identity,
+  created_at timestamptz not null default now(),
+  batch timestamptz not null,
+  grp text not null,
+  horizon text not null default '',
+  company text not null,
+  ticker text not null default '',
+  valuation_usd_b double precision,
+  basis text not null default '',
+  as_of text not null default '',
+  revenue_usd_b double precision,
+  revenue_period text not null default '',
+  ev_revenue double precision,
+  source_name text not null default '',
+  source_url text not null default '',
+  why text not null default '',
+  caveat text not null default ''
+);
+alter table comps enable row level security;

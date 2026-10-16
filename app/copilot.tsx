@@ -89,7 +89,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
     const next: Msg[] = [...base, { role: "user", content: text, by: myRole() }];
     setMsgs(next);
     setInput("");
-    setBusy("Thinking & checking the workbook…");
+    setBusy(`Thinking & checking the workbook… usually 1–3 min (started ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`);
     const payload = next.filter((m) => !m.note).map(({ role, content, image, by }) => ({ role, content, image, by }));
     let t = threadOverride ?? thread;
     if (!t.id) {

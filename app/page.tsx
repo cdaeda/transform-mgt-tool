@@ -7,6 +7,7 @@ import { CaptureModal, toJpegBase64 } from "./capture";
 import { Copilot, type ActTask, type Pending, type Seed } from "./copilot";
 import { ActivityPanel } from "./activity";
 import { ProfitBorrow } from "./profit-borrow";
+import { Comps } from "./comps";
 import { YearRound } from "./year-round";
 import { Simulator } from "./simulator";
 import { DeckView } from "./deck-view";
@@ -191,8 +192,9 @@ function AddRowButton({ spec, onDone }: { spec: AddRow; onDone: () => void }) {
 }
 
 const TABS = ["Dashboard", "Presentation", "Tasks", "Cards", "Capital", "Finance", "Teams", "Workbook", "Activity"] as const;
-const FINANCE_AREAS = ["What-if", "Strategy", "Innovation", "Investor relations"] as const;
-const CAPITAL_AREAS = ["Plan & strategies", "Analyst ratings", "Lever planner", "Research"] as const;
+// Finance = this year, tactical. Capital = the path to $50B and the investor story, strategic.
+const FINANCE_AREAS = ["What-if", "Simulator", "Borrowing", "Innovation"] as const;
+const CAPITAL_AREAS = ["Plan & strategies", "Lever planner", "Analyst ratings", "Comparables", "Research", "Investor relations", "Strategy"] as const;
 
 // The open tab lives in the URL hash (#finances), so links, refresh and the back button work.
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -228,6 +230,11 @@ export default function Home() {
   const area = useSyncExternalStore(onHash, areaFromHash, () => "What-if" as const);
   const capArea = useSyncExternalStore(onHash, capAreaFromHash, () => "Plan & strategies" as const);
   const hash = useSyncExternalStore(onHash, () => window.location.hash, () => "");
+  // Old links from before Strategy and Investor relations moved from Finance to Capital.
+  useEffect(() => {
+    const moved: Record<string, string> = { "#finance/strategy": "capital/strategy", "#finance/investor-relations": "capital/investor-relations" };
+    if (moved[hash]) goTo(moved[hash]);
+  }, [hash]);
   const setCapArea = (a: (typeof CAPITAL_AREAS)[number]) => goTo(`capital/${slug(a)}`);
   // Next-move buttons: do the thing they name.
   const go: Go = (a) => {
@@ -337,21 +344,23 @@ export default function Home() {
               {capArea === "Analyst ratings" && <AnalystRatings version={version} ask={ask} />}
               {capArea === "Lever planner" && <PathTo50B version={version} ask={ask} makeTasks={makeTasks} />}
               {capArea === "Research" && <FinancingPanel ask={ask} />}
+              {capArea === "Comparables" && <Comps ask={ask} />}
+              {capArea === "Investor relations" && <InvestorRelationsPanel ask={ask} version={version} />}
+              {capArea === "Strategy" && (<><StrategyCard version={version} /><AmbitionPanel onYear={bump} /></>)}
             </>)}
             {tab === "Tasks" && <TasksPanel version={version} onAct={(t) => (setChatOpen(true), actRef.current(t))} />}
             {tab === "Cards" && <CardsPanel ask={ask} onBooked={bump} cfo={cfo} />}
             {tab === "Finance" && (<>
-              <ProfitBorrow version={version} />
+              <ProfitBorrow version={version} plans={area === "Borrowing"} />
               <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap -mt-1" aria-label="Finance areas">
                 {FINANCE_AREAS.map((a) => (
                   <button key={a} onClick={() => setArea(a)} aria-current={area === a ? "page" : undefined}
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${area === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
-              {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /><Simulator version={version} ask={ask} /></>)}
-              {area === "Strategy" && (<><StrategyCard version={version} /><AmbitionPanel onYear={bump} /></>)}
+              {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /></>)}
+              {area === "Simulator" && <Simulator version={version} ask={ask} />}
               {area === "Innovation" && <InnovationPanel ask={ask} version={version} />}
-              {area === "Investor relations" && <InvestorRelationsPanel ask={ask} version={version} />}
             </>)}
             {tab === "Activity" && <ActivityPanel version={version} />}
             {tab === "Presentation" && <DeckView embedded />}

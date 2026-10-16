@@ -12,6 +12,12 @@ const client = new Anthropic();
 
 const CHAT_TOOLS = `When you recommend a change to the organization, also call propose_changes so the team can accept or
 reject it. When a decision is the team's to make, use offer_choices instead of a long question.`;
+// The CFO on Finance / Workbook: instructions are commands, so the copilot writes the cells itself.
+const CFO_DOES = `THE CFO IS GIVING YOU INSTRUCTIONS: when she says what she wants in the numbers, DO IT - read the
+relevant 'Team 1' cells first, then write them with the write tool (the critic audits every change before it is
+saved and pushed to the class sheet). Ask one short question only if the instruction is genuinely ambiguous
+(which cell, which year, which amount). After writing, list each cell changed (old -> new) and what it does to
+net profit, cash and market cap. Use propose_changes only for things that are not workbook cells.`;
 const ACT = `YOU ARE WORKING A TASK WITH THE TEAM (see the first message). Drive it to done, fast:
 1. If how to approach it is genuinely open, ask 1-3 focused questions with offer_choices (one call per
    question, options tappable). Skip questions whose answers are already in our data or memory.
@@ -26,8 +32,8 @@ const FOCUS: Record<string, string> = {
   Dashboard: "the overall position: market cap, the $50B goal, the three horizons and the next moves",
   Tasks: "the team's task board: who owns what, what is due, and getting tasks done",
   Cards: "game cards: evaluating them, choosing which to play, and booking business-model cards",
-  Capital: "capital strategies, analyst ratings, the lever plan to $50B and financing research",
-  Finance: "what-if scenarios, strategy, innovation and investor relations",
+  Capital: "the strategic path to $50B and the investor story: capital strategies, the lever and year-by-year plan, analyst ratings, comparable valuations, financing research, investor relations and our strategy",
+  Finance: "this year's numbers, tactically: the Team 1 year table and what-ifs, the multi-year simulator, net profit, borrowing ability and borrowing plans, and innovation spend",
   Teams: "the rival teams: their finances, moves and fit as partners",
   Workbook: "the Team 1 workbook: specific cells, formulas, and errors to fix",
   Activity: "the team's activity log: who decided and did what, and what it led to",
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
         output_config: { effort: "high" },
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
-        system: `${await systemPrompt()}\n\n${mode === "act" ? ACT : CHAT_TOOLS}\n\nYOU ARE THE ${tab.toUpperCase()} TAB'S COPILOT: focus on ${FOCUS[tab] ?? FOCUS.Dashboard}. Several team members share this thread; each of their messages starts with their role in [brackets].${log.length ? `\n\nRECENT ACTIVITY (newest first):\n${log.map((a) => `${new Date(a.created_at).toISOString().slice(0, 16)} ${a.role || "?"} @${a.tab || "?"} [${a.kind}] ${a.summary}`).join("\n")}` : ""}\n\nTHE PERSON CHATTING NOW IS THE ${roleOf(req) ?? "UNKNOWN ROLE"}.${cfo ? "" : " Only the CFO can change numbers: you cannot write cells for them. If they ask for a change, say exactly which cells and values the CFO should enter, and suggest a task for the CFO."}`,
+        system: `${await systemPrompt()}\n\n${mode === "act" ? ACT : cfo && ["Finance", "Workbook"].includes(tab) ? CFO_DOES : CHAT_TOOLS}\n\nYOU ARE THE ${tab.toUpperCase()} TAB'S COPILOT: focus on ${FOCUS[tab] ?? FOCUS.Dashboard}. Several team members share this thread; each of their messages starts with their role in [brackets].${log.length ? `\n\nRECENT ACTIVITY (newest first):\n${log.map((a) => `${new Date(a.created_at).toISOString().slice(0, 16)} ${a.role || "?"} @${a.tab || "?"} [${a.kind}] ${a.summary}`).join("\n")}` : ""}\n\nTHE PERSON CHATTING NOW IS THE ${roleOf(req) ?? "UNKNOWN ROLE"}.${cfo ? "" : " Only the CFO can change numbers: you cannot write cells for them. If they ask for a change, say exactly which cells and values the CFO should enter, and suggest a task for the CFO."}`,
         // In "act" mode (working a task) every change goes through accept/reject proposals.
         tools: cfo && mode !== "act" ? [readTool, makeWriteTool(write), ...ix.tools] : [readTool, ...ix.tools],
         max_iterations: 20,
