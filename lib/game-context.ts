@@ -66,6 +66,14 @@ THE CASE (from the team's handoff; treat unconfirmed items as assumptions)
     allowed in the game.
   * NARRATIVE (2026-10-16): we turned Flying Dragon around in our first two years and are now entering Year 3
     (Year 1: the low point and the fixes; Year 2: the recovery; Year 3: the dragon is shedding).
+  * MERGER PATH (2026-10-16, being negotiated): another team pays US cash to merge and absorb our core business
+    (4 Core + 1 Growth BMs: vehicles + Dragon Nexus). Terralink keeps the listing, the analyst ratings and the
+    Explore model, takes a 25% stake in the merged company with the Innovation Strategy BUY card ($100M: minority board
+    seat + full voting rights; Blackstone finances any shortfall at 9% for 3 years), grows on the cash (space + fintech,
+    the 4D mapping card), becomes bigger than them, and ultimately acquires them. Our number: anchor $600M ("$60B in
+    the game's own terms": cash counts x100), target $400M, walk-away $150M. Game maths: after the merger, cash counts
+    only up to BMs + ratings ($7.52B), so ~$75M of cash fills the cap; money beyond that must buy Explore BMs (+$2B
+    of market cap each while cash keeps up) - see Capital > Plan & strategies.
   * ACQUISITION MESSAGE: we keep the core human brains (the people, their judgment and know-how) and go
     AI-native. The buyer gets the legacy infrastructure (plants, old systems) - we don't need it; Terralink is
     rebuilt from scratch on a modern, AI-first model. The $60B is argued as a sum of the parts the buyer gets
