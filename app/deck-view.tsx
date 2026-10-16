@@ -19,6 +19,7 @@ type Overview = {
   certificate: { caps: number[]; price: number[]; rank: string };
   kpis: { revenue: number; ebitda: number; net: number; cash: number };
   sim?: { net: number[] };
+  health?: { workbookUpdated: string | null };
   plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number };
   teams: { team: number; years: Year[] }[];
 };
@@ -273,6 +274,13 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
         </span>
       </header>
       {err && <p className="text-red-300 px-4 py-2 print:hidden">{err}</p>}
+      {/* The workbook moved on after this deck was written: its narrative numbers may be out of date. */}
+      {deck && o?.data?.health?.workbookUpdated && new Date(o.data.health.workbookUpdated) > new Date(deck.created_at) && !busy && (
+        <p className="print:hidden bg-amber-500 text-[var(--ink)] px-4 py-2 text-sm font-semibold flex flex-wrap items-center gap-3">
+          ⚠ The workbook changed since this deck was written ({new Date(deck.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}): the charts are live, but the text may quote old numbers.
+          <button onClick={generate} className="rounded bg-[var(--ink)] text-white px-2 py-0.5">Regenerate now</button>
+        </p>
+      )}
       {deck === undefined ? <p className="text-white/70 p-8">Loading…</p> : !deck ? (
         <div className="m-auto text-center text-white space-y-3 p-8">
           <p className="font-display text-3xl uppercase">Annual Shareholder Meeting & Analyst Day</p>
