@@ -49,7 +49,8 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState("");
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs, busy]);
+  // void: newer Chrome returns a Promise from scrollIntoView, which React would treat as a cleanup.
+  useEffect(() => void end.current?.scrollIntoView({ block: "end" }), [msgs, busy]);
   // Reopen this tab's latest thread (decided proposals show as past; the Activity tab has the outcome).
   const touched = useRef(false);
   useEffect(() => {
