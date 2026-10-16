@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { refreshOverview, useOverview } from "./overview-store";
 import { HorizonKnob } from "./knob";
-import { StrategyCard } from "./strategy-card";
 import { MarketCapThermometer } from "./thermometer";
+import { GoalPath } from "./goal";
+import { NextMove, type Go } from "./next-move";
+import type { Strat } from "@/lib/capital";
 
 type Status = "on-track" | "at-risk" | "off-track" | "no-target";
 type Fact = { label: string; value: number | null; unit: "$" | "#" | "x"; extra?: number };
@@ -20,7 +22,9 @@ type Dash = {
   health: { unpushed: number; workbookUpdated: string | null; lastAudit: { verdict: string; summary: string; created_at: string } | null };
   targets: { h1: number | null; h2: number | null; h3: number | null; h3_partners: number };
   knob: { value: number; target: { h1: number; h2: number; h3: number }; actual: { pct: { h1: number; h2: number; h3: number }; spend: { h1: number; h2: number; h3: number }; total: number } };
-  plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number; cash: number };
+  plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number; cash: number; shares: number };
+  goal: { year: number; cap: number };
+  capital: Strat[];
 };
 
 const money = (n: number) => {
@@ -65,9 +69,9 @@ function HorizonCard({ h, onTarget, partners, onPartners }: { h: Horizon; onTarg
     const m = t.match(/^(-?\d*\.?\d+)([KMB]?)$/);
     return m ? Number(m[1]) * ({ "": 1, K: 1e3, M: 1e6, B: 1e9 } as Record<string, number>)[m[2]] : NaN;
   };
+  // The colored top edge replaces the card's inset frame, which otherwise left the stripe sticking out past it.
   return (
-    <section className="game-card !p-0 overflow-hidden flex flex-col" aria-label={`${h.id} ${h.name}`}>
-      <div className="h-1.5" style={{ background: HUE[h.id] }} />
+    <section className="game-card !p-0 ![outline:none] border-t-[6px] overflow-hidden flex flex-col" style={{ borderTopColor: HUE[h.id] }} aria-label={`${h.id} ${h.name}`}>
       <div className="p-4 space-y-3 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -119,7 +123,7 @@ function HorizonCard({ h, onTarget, partners, onPartners }: { h: Horizon; onTarg
   );
 }
 
-export function DashboardPanel({ version, onChanged, onTune, onPlan }: { version: number; onChanged: () => void; onTune: () => void; onPlan: () => void }) {
+export function DashboardPanel({ version, onChanged, onTune, onPlan, go }: { version: number; onChanged: () => void; onTune: () => void; onPlan: () => void; go: Go }) {
   const o = useOverview<Dash>(version);
   const d = o?.data?.horizons ? o.data : null;
   const err = d ? "" : o?.error ?? "";
@@ -144,8 +148,12 @@ export function DashboardPanel({ version, onChanged, onTune, onPlan }: { version
 
   return (
     <div className="space-y-5">
+      <NextMove go={go} version={version} />
+      {d.plan && d.goal && (
+        <GoalPath today={{ ...d.plan.units, analysts: d.plan.analysts, cash: d.plan.cashForCap, shares: d.plan.shares || 1e9, year: d.year }}
+          strats={d.capital ?? []} goalYear={d.goal.year} goalCap={d.goal.cap} onOpen={onPlan} />
+      )}
       {d.plan && <MarketCapThermometer year={d.year} units={d.plan.units} analysts={d.plan.analysts} cashForCap={d.plan.cashForCap} cash={d.plan.cash} onPlan={onPlan} />}
-      <StrategyCard version={version} />
       <div className="flex items-baseline justify-between flex-wrap gap-2">
         <h2 className="text-2xl">Year {d.year} scorecard</h2>
         <span className="text-xs text-zinc-500">From the workbook{d.health.workbookUpdated && `, updated ${new Date(d.health.workbookUpdated).toLocaleString()}`}</span>

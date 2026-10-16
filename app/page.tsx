@@ -4,11 +4,15 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { col2n, freeRow, n2col } from "@/lib/impact";
 const freeRowIndex = (rows: Cell[][]) => { const r = freeRow(0, rows); return r === null ? -1 : r; };
 import { CaptureModal } from "./capture";
-import { Copilot, type ActTask, type Seed } from "./copilot";
+import { Copilot, type ActTask, type Pending, type Seed } from "./copilot";
+import { ActivityPanel } from "./activity";
 import { DashboardPanel } from "./dashboard";
 import { RolePicker, TasksPanel, useMyRole } from "./tasks";
 import { InnovationPanel, InvestorRelationsPanel, RivalFinances } from "./finance-areas";
 import { PathTo50B } from "./path50";
+import { CapitalPanel } from "./capital";
+import { AnalystRatings } from "./ratings";
+import type { Go } from "./next-move";
 import { refreshOverview } from "./overview-store";
 import { StrategyCard } from "./strategy-card";
 import { FinancesPanel } from "./finances";
@@ -181,8 +185,9 @@ function AddRowButton({ spec, onDone }: { spec: AddRow; onDone: () => void }) {
   );
 }
 
-const TABS = ["Dashboard", "Tasks", "Cards", "Finance", "Teams", "Workbook"] as const;
-const FINANCE_AREAS = ["Path to $50B", "What-if", "Financing", "Strategy", "Innovation", "Investor relations"] as const;
+const TABS = ["Dashboard", "Tasks", "Cards", "Capital", "Finance", "Teams", "Workbook", "Activity"] as const;
+const FINANCE_AREAS = ["What-if", "Strategy", "Innovation", "Investor relations"] as const;
+const CAPITAL_AREAS = ["Plan & strategies", "Analyst ratings", "Lever planner", "Research"] as const;
 
 // The open tab lives in the URL hash (#finances), so links, refresh and the back button work.
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -192,13 +197,16 @@ const goTo = (t: string) => {
 const onHash = (cb: () => void) => (window.addEventListener("hashchange", cb), () => window.removeEventListener("hashchange", cb));
 // #finance/investor-relations -> tab "Finance", area "Investor relations"
 const tabFromHash = () => TABS.find((t) => window.location.hash.split("/")[0] === `#${slug(t)}`) ?? "Dashboard";
-const areaFromHash = () => FINANCE_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "Path to $50B";
+const areaFromHash = () => FINANCE_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "What-if";
+const capAreaFromHash = () => CAPITAL_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "Plan & strategies";
 
 export default function Home() {
   const askRef = useRef<(text: string) => void>(() => {});
   const threadRef = useRef<(seed: Seed) => void>(() => {});
   const noteRef = useRef<(text: string) => void>(() => {});
   const actRef = useRef<(task: ActTask) => void>(() => {});
+  const pendingRef = useRef<Pending>(null);
+  const [flash, setFlash] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
   const role = useMyRole();
   const cfo = role === "CFO";
@@ -207,7 +215,31 @@ export default function Home() {
   const [rolePicker, setRolePicker] = useState(false);
   const tab = useSyncExternalStore(onHash, tabFromHash, () => "Dashboard" as const);
   const setTab = (t: (typeof TABS)[number]) => goTo(t);
-  const area = useSyncExternalStore(onHash, areaFromHash, () => "Path to $50B" as const);
+  // Tell the server which tab each change comes from (the activity log records it).
+  useEffect(() => void (document.cookie = `transform_tab=${encodeURIComponent(tab)}; path=/; samesite=lax`), [tab]);
+  const area = useSyncExternalStore(onHash, areaFromHash, () => "What-if" as const);
+  const capArea = useSyncExternalStore(onHash, capAreaFromHash, () => "Plan & strategies" as const);
+  const setCapArea = (a: (typeof CAPITAL_AREAS)[number]) => goTo(`capital/${slug(a)}`);
+  // Next-move buttons: do the thing they name.
+  const go: Go = (a) => {
+    if (a.kind === "roll" || a.kind === "capture") return setCaptureOpen(true);
+    if (a.kind === "deck") return void window.open("/deck", "_blank");
+    if (a.kind === "path") return setCapArea("Lever planner");
+    if (a.kind === "capital") return setCapArea("Plan & strategies");
+    if (a.kind === "task" && a.task_id)
+      return void fetch("/api/tasks").then((r) => r.json()).then((ts) => {
+        const t = Array.isArray(ts) && ts.find((x: { id: number }) => x.id === a.task_id);
+        if (!t) return;
+        setChatOpen(true);
+        actRef.current(t);
+      });
+    // Chat actions: workbook work opens the Workbook tab; that tab's copilot starts a titled thread and flashes.
+    const to = /workbook|cell|audit|[A-Z]\d{2,3}\b/i.test(`${a.label} ${a.prompt}`) ? "Workbook" : tab;
+    pendingRef.current = { tab: to, title: a.label, text: a.prompt || a.label };
+    setTab(to);
+    setChatOpen(true);
+    setFlash((f) => f + 1);
+  };
   const makeTasks = (context: string) => {
     noteRef.current("📋 Creating tasks for each role…");
     fetch("/api/tasks/plan", { method: "POST", body: JSON.stringify({ context, source: "Path to $50B" }) })
@@ -262,14 +294,27 @@ export default function Home() {
       </header>
       <div className="flex flex-col lg:flex-row flex-1">
         <main className="flex-1 min-w-0 p-3 sm:p-4 space-y-4 pb-20 lg:pb-4">
+          {tab === "Dashboard" && <StrategyCard version={version} />}
           <MarketCapBar version={version} />
-          <nav className="flex gap-1 overflow-x-auto whitespace-nowrap items-end relative z-10" aria-label="Sections">
+          <nav className="flex gap-1 overflow-x-auto whitespace-nowrap items-end relative z-10 !mb-0" aria-label="Sections">
             {TABS.map((t) => (
               <button key={t} onClick={() => setTab(t)} aria-current={tab === t ? "page" : undefined} className="file-tab">{t}</button>
             ))}
           </nav>
-          <div className="tab-panel space-y-4">
-            {tab === "Dashboard" && <DashboardPanel version={version} onChanged={bump} onTune={() => setArea("What-if")} onPlan={() => setArea("Path to $50B")} />}
+          <div className="tab-panel space-y-4 !mt-0">
+            {tab === "Dashboard" && <DashboardPanel version={version} onChanged={bump} onTune={() => setArea("What-if")} onPlan={() => setCapArea("Plan & strategies")} go={go} />}
+            {tab === "Capital" && (<>
+              <nav className="flex gap-1 overflow-x-auto whitespace-nowrap -mt-1" aria-label="Capital areas">
+                {CAPITAL_AREAS.map((a) => (
+                  <button key={a} onClick={() => setCapArea(a)} aria-current={capArea === a ? "page" : undefined}
+                    className={`rounded-full px-3 py-1 text-sm font-semibold ${capArea === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
+                ))}
+              </nav>
+              {capArea === "Plan & strategies" && <CapitalPanel version={version} ask={ask} />}
+              {capArea === "Analyst ratings" && <AnalystRatings version={version} ask={ask} />}
+              {capArea === "Lever planner" && <PathTo50B version={version} ask={ask} makeTasks={makeTasks} />}
+              {capArea === "Research" && <FinancingPanel ask={ask} />}
+            </>)}
             {tab === "Tasks" && <TasksPanel version={version} onAct={(t) => (setChatOpen(true), actRef.current(t))} />}
             {tab === "Cards" && <CardsPanel ask={ask} onBooked={bump} cfo={cfo} />}
             {tab === "Finance" && (<>
@@ -279,13 +324,12 @@ export default function Home() {
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${area === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
-              {area === "Path to $50B" && <PathTo50B version={version} ask={ask} makeTasks={makeTasks} />}
               {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /></>)}
-              {area === "Financing" && <FinancingPanel ask={ask} />}
               {area === "Strategy" && (<><StrategyCard version={version} /><AmbitionPanel onYear={bump} /></>)}
               {area === "Innovation" && <InnovationPanel ask={ask} version={version} />}
               {area === "Investor relations" && <InvestorRelationsPanel ask={ask} version={version} />}
             </>)}
+            {tab === "Activity" && <ActivityPanel version={version} />}
             {tab === "Teams" && (<><RivalFinances version={version} /><TeamsPanel /></>)}
             {tab === "Workbook" && (<>
               <EditToggle cfo={cfo} on={editMode} set={setEditMode} />
@@ -306,15 +350,20 @@ export default function Home() {
           </div>
         </main>
         <button onClick={() => setChatOpen(true)} className="lg:hidden fixed bottom-4 right-4 z-30 rounded-full board-bar shadow-xl px-4 py-3 font-display uppercase tracking-wider text-sm">
-          <span className="wordmark mr-1">✦</span>CFO copilot
+          <span className="wordmark mr-1">✦</span>{tab} copilot
         </button>
         <aside className={`${chatOpen ? "fixed inset-0 z-50 bg-background p-3" : "hidden"} lg:block lg:static lg:w-[26rem] lg:h-[calc(100vh-3.5rem)] lg:sticky lg:top-0 lg:p-4`}>
-          <div className="game-card h-full flex flex-col">
+          <div className="game-card relative h-full flex flex-col">
+            {flash > 0 && <span key={flash} className="copilot-flash !absolute inset-0 rounded-[10px] pointer-events-none" aria-hidden />}
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg">CFO copilot</h2>
+              <h2 className="text-lg">{tab} copilot</h2>
               <button onClick={() => setChatOpen(false)} className="lg:hidden rounded-md border border-zinc-300 px-3 py-1 text-sm">Close</button>
             </div>
-            <div className="flex-1 min-h-0"><Copilot onReply={bump} askRef={askRef} threadRef={threadRef} noteRef={noteRef} actRef={actRef} onTasks={bump} /></div>
+            {TABS.map((t) => (
+              <div key={t} className={t === tab ? "flex-1 min-h-0" : "hidden"}>
+                <Copilot tab={t} active={t === tab} pendingRef={pendingRef} onReply={bump} askRef={askRef} threadRef={threadRef} noteRef={noteRef} actRef={actRef} onTasks={bump} />
+              </div>
+            ))}
           </div>
         </aside>
       </div>

@@ -48,7 +48,7 @@ export function MarketCapThermometer({ year, units, analysts, cashForCap, cash, 
   ];
 
   return (
-    <section className="game-card" aria-label="Market cap thermometer">
+    <section className="rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/40 p-4 sm:p-5" aria-label="Market cap thermometer">
       <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
         <h2 className="text-xl">Market cap · Year {year}</h2>
         <span className="text-xs text-zinc-500">How the workbook values us: 1 + 2 + 3 = market cap · goal $50B</span>
@@ -73,7 +73,7 @@ export function MarketCapThermometer({ year, units, analysts, cashForCap, cash, 
         {/* explainability, part by part */}
         <div className="space-y-2">
           {parts.map((p) => (
-            <div key={p.n} className="grid grid-cols-[2rem_1fr_auto] gap-x-3 items-start rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
+            <div key={p.n} className="grid grid-cols-[2rem_1fr_auto] gap-x-3 items-start rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface p-3">
               <span className="grid place-items-center w-8 h-8 rounded-full text-white font-display" style={{ background: p.color }}>{p.n}</span>
               <div className="min-w-0 space-y-0.5">
                 <p className="font-display uppercase tracking-wide">{p.name}</p>
@@ -84,10 +84,10 @@ export function MarketCapThermometer({ year, units, analysts, cashForCap, cash, 
               <span className={`font-display text-2xl tabular-nums ${p.value < 0 ? "text-red-600" : ""}`}>{capM(p.value)}</span>
             </div>
           ))}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-indigo-900 text-white px-3 py-2">
             <span className="font-display uppercase tracking-wide">= Market cap</span>
             <span className={`font-display text-3xl tabular-nums ${mc.total < 0 ? "text-red-600" : ""}`}>{capM(mc.total)}</span>
-            <span className="w-full text-xs text-zinc-500">{capM(Math.max(0, 50000 - mc.total))} to the $50B goal — $50 a share at 1BN shares.{" "}
+            <span className="w-full text-xs text-white/75">{capM(Math.max(0, 50000 - mc.total))} to the $50B goal — $50 a share at 1BN shares.{" "}
               {onPlan && <button onClick={onPlan} className="underline">Plan the path to $50B →</button>}
             </span>
           </div>

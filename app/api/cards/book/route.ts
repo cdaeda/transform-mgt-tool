@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { bookingWrites } from "@/lib/booking";
 import { gated } from "@/lib/critic";
 import { isBM, sql, type Card } from "@/lib/db";
@@ -29,6 +30,7 @@ Our notes: ${card.our_notes || "(none)"}`;
     const [updated] = result.saved
       ? await sql<Card[]>`update cards set status = 'booked', sheet_row = ${row} where id = ${id} returning *`
       : [card];
+    if (result.saved) await logActivity(req, "decision", `Booked card #${card.id} into the workbook: ${card.title}`, { card: card.id, cells: result.changes.map((c) => c.range), critic: result.audit?.verdict });
     return Response.json({ card: updated, saved: result.saved, audit: result.audit, cells: result.changes.map((c) => c.range), pushed: result.pushed, pushError: result.pushError });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });

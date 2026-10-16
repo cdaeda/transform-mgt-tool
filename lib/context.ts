@@ -63,7 +63,7 @@ HORIZON TARGETS: H1 Core BM profit ${s.h1_target ?? "(not set)"}; H2 Growth/data
 CARDS WE HAVE DRAWN - all of them stay in consideration (newest first; amounts in dollars):
 ${state.cards.map(cardLine).join("\n") || "(none yet)"}
 
-FINANCING OPTIONS (PICKED = the team chose it; IDEA = still open):
+FINANCING / CAPITAL STRATEGIES (LOCKED = committed in our plan; PITCHING = we are pitching for it; IDEA = open):
 ${state.financing.map((f) => `#${f.id} [${f.status.toUpperCase()}] ${f.name} (${f.category}) - ${f.amount} at ${f.cost}; source: ${f.source}; AI: ${f.recommendation}${f.our_notes ? `; OUR CALL: ${f.our_notes}` : ""}`).join("\n") || "(none yet)"}
 
 OTHER TEAMS:

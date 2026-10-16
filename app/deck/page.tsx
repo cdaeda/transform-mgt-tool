@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import type { DeckT } from "@/lib/deck";
 import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
+import { ComebackChart, useRounds } from "../comeback";
+import { DragonMark } from "../dragon-mark";
 import { useOverview } from "../overview-store";
 
 type Year = { revenue: number; ebitda: number; net: number; cash: number };
@@ -48,8 +50,9 @@ function Bars({ items }: { items: { label: string; value: number; color: string 
   );
 }
 
-function Visual({ kind, o, doc }: { kind: string; o: Overview; doc: Doc }) {
+function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc; rounds: Parameters<typeof ComebackChart>[0]["rounds"] }) {
   const i = o.year - 1;
+  if (kind === "progress") return <div className="space-y-2"><DragonMark size={110} className="mx-auto" /><ComebackChart rounds={rounds} height={220} /></div>;
   if (kind === "results")
     return <Bars items={[
       { label: "Revenue", value: o.kpis.revenue, color: "var(--core)" },
@@ -100,6 +103,7 @@ function Visual({ kind, o, doc }: { kind: string; o: Overview; doc: Doc }) {
 // Shareholder Day deck: Claude's narrative over live workbook visuals. Arrow keys to move, N for notes.
 export default function DeckPage() {
   const o = useOverview<Overview>(0);
+  const { rounds } = useRounds();
   const [deck, setDeck] = useState<{ content: DeckT; created_at: string } | null | undefined>(undefined);
   const [doc, setDoc] = useState<Doc>(null);
   const [n, setN] = useState(0);
@@ -135,6 +139,10 @@ export default function DeckPage() {
   }
 
   const data = o?.data?.plan ? o.data : null;
+  // 3-minute limit: speaking time from the notes at ~170 words a minute.
+  const secs = (t: string) => Math.round((t.trim().split(/\s+/).length / 170) * 60);
+  const total = slides.reduce((s2, x) => s2 + secs(x.notes), 0);
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
   const s = slides[n];
   return (
     <div className="min-h-screen flex flex-col bg-zinc-900 print:bg-white">
@@ -143,8 +151,10 @@ export default function DeckPage() {
         <span className="font-display uppercase tracking-wide text-white/90">{deck?.content.title ?? "Annual Shareholder Meeting & Analyst Day"}</span>
         <span className="ml-auto flex items-center gap-2 text-sm text-white/85">
           {slides.length > 0 && <span className="tabular-nums">{n + 1} / {slides.length}</span>}
+          {slides.length > 0 && <span className={`tabular-nums rounded px-1.5 ${total > 180 ? "bg-red-600 text-white" : "bg-white/15"}`} title="Speaking time at ~170 words a minute">⏱ {mmss(total)} / 3:00</span>}
           <button onClick={() => setNotes(!notes)} className="rounded border border-white/30 px-2 py-0.5">{notes ? "Hide" : "Show"} notes (N)</button>
           <button onClick={() => window.print()} className="rounded border border-white/30 px-2 py-0.5">Print / PDF</button>
+          {deck && <a href="/api/deck/pptx" className="rounded border border-white/30 px-2 py-0.5">Download PowerPoint</a>}
           <button onClick={generate} disabled={busy} className="rounded bg-[var(--gold)] text-[var(--ink)] font-semibold px-2 py-0.5 disabled:opacity-60">{busy ? "Writing… (~2 min)" : deck ? "Regenerate" : "Write the deck"}</button>
         </span>
       </header>
@@ -163,6 +173,7 @@ export default function DeckPage() {
               {sl.kind === "title" ? (
                 <div className="certificate flex-1 !rounded-none p-10 flex flex-col justify-end">
                   <p className="relative eyebrow text-amber-300">{DECK_LABEL} · Year {data?.year ?? ""}</p>
+                  <DragonMark size={150} className="absolute right-10 top-10 opacity-90" />
                   <h1 className="relative figure text-6xl sm:text-8xl mt-2">Dragon Drive</h1>
                   <p className="relative font-display text-2xl sm:text-3xl text-white/90 mt-2 normal-case">{sl.headline}</p>
                   <p className="relative text-white/70 mt-4">{deck.content.subtitle}</p>
@@ -173,11 +184,11 @@ export default function DeckPage() {
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind.replace("_", " ")}</p>
                     <h2 className="text-3xl sm:text-4xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  <div className={`grid gap-8 items-center ${data && ["results", "market_cap", "roadmap", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ""}`}>
+                  <div className={`grid gap-8 items-center ${data && ["progress", "results", "market_cap", "roadmap", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ""}`}>
                     <ul className="space-y-3 text-xl">
                       {sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}
                     </ul>
-                    {data && <Visual kind={sl.kind} o={data} doc={doc} />}
+                    {data && <Visual kind={sl.kind} o={data} doc={doc} rounds={rounds ?? []} />}
                   </div>
                 </div>
               )}
@@ -188,7 +199,7 @@ export default function DeckPage() {
           ))}
           {notes && s && (
             <aside className="w-full max-w-6xl rounded-lg bg-zinc-800 text-zinc-100 p-4 print:hidden">
-              <p className="eyebrow text-amber-300">Speaker notes · {who(s.speaker)}</p>
+              <p className="eyebrow text-amber-300">Speaker notes · {who(s.speaker)} · ⏱ {mmss(secs(s.notes))}</p>
               <p className="mt-1 text-base leading-relaxed">{s.notes}</p>
             </aside>
           )}

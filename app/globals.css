@@ -220,3 +220,26 @@ body {
   :root:not([data-theme="light"]) .md code, :root:not([data-theme="light"]) .md th { background: var(--color-zinc-800); }
   :root:not([data-theme="light"]) .md th, :root:not([data-theme="light"]) .md td { border-color: var(--color-zinc-700); }
 }
+
+/* Dragon -> Drive: 7s loop. The dragon folds its wings and fades as the Drive mark and its flames rise. */
+.dragon-mark .dm-dragon { transform-origin: 100px 100px; animation: dm-dragon 7s ease-in-out infinite; }
+.dragon-mark .dm-wing-l { transform-origin: 100px 104px; animation: dm-flap-l 7s ease-in-out infinite; }
+.dragon-mark .dm-wing-r { transform-origin: 100px 104px; animation: dm-flap-r 7s ease-in-out infinite; }
+.dragon-mark .dm-drive { transform-origin: 100px 100px; animation: dm-drive 7s ease-in-out infinite; }
+.dragon-mark .dm-flames path { transform-box: fill-box; transform-origin: 50% 100%; animation: dm-flicker 0.9s ease-in-out infinite alternate; }
+.dragon-mark .dm-f2 { animation-delay: 0.3s !important; }
+.dragon-mark .dm-f3 { animation-delay: 0.55s !important; }
+@keyframes dm-dragon { 0%, 22% { opacity: 1; transform: translateY(0) scale(1); } 42%, 88% { opacity: 0; transform: translateY(-6px) scale(0.7) rotate(-8deg); } 100% { opacity: 1; transform: none; } }
+@keyframes dm-flap-l { 0%, 8%, 16% { transform: rotate(0); } 4%, 12% { transform: rotate(10deg); } 30% { transform: rotate(-35deg) scaleX(0.6); } 100% { transform: none; } }
+@keyframes dm-flap-r { 0%, 8%, 16% { transform: rotate(0); } 4%, 12% { transform: rotate(-10deg); } 30% { transform: rotate(35deg) scaleX(0.6); } 100% { transform: none; } }
+@keyframes dm-drive { 0%, 26% { opacity: 0; transform: scale(0.6) rotate(20deg); } 44%, 90% { opacity: 1; transform: scale(1) rotate(0); } 100% { opacity: 0; transform: scale(0.8); } }
+@keyframes dm-flicker { from { transform: scaleY(0.82) skewX(-3deg); opacity: 0.85; } to { transform: scaleY(1.12) skewX(3deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .dragon-mark .dm-dragon, .dragon-mark .dm-wing-l, .dragon-mark .dm-wing-r, .dragon-mark .dm-drive, .dragon-mark .dm-flames path { animation: none; }
+  .dragon-mark .dm-dragon { opacity: 0; }
+}
+
+/* A Next-move action just landed in the copilot. */
+.copilot-flash { animation: copilot-flash 1.6s ease-out 1; }
+@keyframes copilot-flash { 0%, 30% { box-shadow: 0 0 0 4px var(--gold), 0 0 32px 4px rgb(201 162 39 / 0.6); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .copilot-flash { animation: none; } }

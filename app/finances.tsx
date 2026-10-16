@@ -229,8 +229,8 @@ export function FinancesPanel({ version, onApplied, editable = false, cfo = fals
 
   async function pick(o: Option) {
     const ids = o.picks.map((p) => p.idea_id).filter((x): x is number => x !== null);
-    await Promise.all(ids.map((id) => api("/api/financing", "PATCH", { id, status: "picked", our_notes: `Option "${o.name}": ${o.picks.find((p) => p.idea_id === id)?.amount ?? ""}` })));
-    setIdeas((xs) => xs.map((x) => (ids.includes(x.id) ? { ...x, status: "picked" } : x)));
+    await Promise.all(ids.map((id) => api("/api/financing", "PATCH", { id, status: "locked", our_notes: `Option "${o.name}": ${o.picks.find((p) => p.idea_id === id)?.amount ?? ""}` })));
+    setIdeas((xs) => xs.map((x) => (ids.includes(x.id) ? { ...x, status: "locked" } : x)));
     setMsg(`Picked "${o.name}" — ${ids.length} financing option(s) are now part of our strategy.${o.levers.length ? " Preview it, then use \"Apply levers to workbook\" to book its numbers." : ""}`);
   }
 

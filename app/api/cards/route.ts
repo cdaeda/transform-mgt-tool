@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
       start_year: Math.min(10, Math.max(1, e.start_year)),
     };
     const [card] = await sql<Card[]>`insert into cards ${sql(row)} returning *`;
+    await logActivity(req, "action", `Evaluated card #${card.id} (${card.type}): ${card.title} → ${card.recommendation}`, { card: card.id });
     return Response.json(card);
   } catch (err) {
     const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
@@ -93,6 +95,7 @@ export async function PATCH(req: Request) {
   const body = await req.json();
   try {
     const [card] = await sql`update cards set ${sql(pick(body, EDITABLE))} where id = ${body.id} returning *`;
+    await logActivity(req, body.status ? "decision" : "action", body.status ? `Card #${card.id} → ${card.status}: ${card.title}` : `Edited card #${card.id}: ${card.title}`, { card: card.id, changed: Object.keys(pick(body, EDITABLE)) });
     return Response.json(card);
   } catch (err) {
     return Response.json({ error: String(err) }, { status: 400 });

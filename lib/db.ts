@@ -47,6 +47,9 @@ export type Strategy = {
   h1_pct: number;
   h2_pct: number;
   h3_pct: number;
+  goal_year: number;
+  goal_cap: number;
+  analyst_target: number[];
 };
 export type Team = {
   team_number: number;
@@ -74,7 +77,16 @@ export type FinancingIdea = {
   fit: string;
   risks: string;
   recommendation: string;
-  status: "idea" | "picked" | "rejected";
+  status: "idea" | "pitching" | "locked" | "rejected";
   our_notes: string;
   rank: number | null;
+  effect: Effect | null;
+  year: number | null;
+  scale: number;
+  aggressiveness: number | null;
+  legal_basis: string;
+  red_lines: string;
+  pitch_to: string;
 };
+// What a capital strategy does to the market-cap levers when it lands (all optional, 0 = no change).
+export type Effect = { cash_m: number; core: number; growth: number; explore: number; analysts: number[]; shares_m: number; interest_m: number };

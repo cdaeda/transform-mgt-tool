@@ -196,3 +196,52 @@ create table if not exists threads (
 );
 alter table knowledge enable row level security;
 alter table threads enable row level security;
+
+-- $50B-by-Year-3 goal and the Capital board (idea -> pitching -> locked), with each strategy's effect
+-- on the market-cap levers so the simulator can project the path.
+alter table strategy add column if not exists goal_year int not null default 3;
+alter table strategy add column if not exists goal_cap double precision not null default 50000;
+alter table financing_ideas drop constraint if exists financing_ideas_status_check;
+update financing_ideas set status = 'locked' where status = 'picked';
+alter table financing_ideas add constraint financing_ideas_status_check check (status in ('idea', 'pitching', 'locked', 'rejected'));
+alter table financing_ideas add column if not exists effect jsonb;
+alter table financing_ideas add column if not exists year int;
+alter table financing_ideas add column if not exists scale double precision not null default 1;
+alter table financing_ideas add column if not exists aggressiveness int;
+alter table financing_ideas add column if not exists legal_basis text not null default '';
+alter table financing_ideas add column if not exists red_lines text not null default '';
+alter table financing_ideas add column if not exists pitch_to text not null default '';
+
+-- The copilot's latest 'what should we do next' suggestion (regenerated when stale).
+create table if not exists next_moves (id bigint primary key generated always as identity, created_at timestamptz not null default now(), content jsonb not null);
+alter table next_moves enable row level security;
+
+alter table strategy add column if not exists analyst_target jsonb not null default '[0,0,0,0,0]'; -- goal-year rating mix: Outperform, Buy, Hold, Sell, Crash
+
+-- Snapshots of our numbers at key rounds (manual or after a sync that changed Team 1) - the comeback story.
+create table if not exists round_snapshots (
+  id bigint primary key generated always as identity,
+  created_at timestamptz not null default now(),
+  label text not null,
+  year int not null,
+  data jsonb not null
+);
+alter table round_snapshots enable row level security;
+
+-- Per-tab copilot threads, and who said what in them.
+alter table threads add column if not exists tab text not null default 'Dashboard';
+
+-- Activity log: who (role) did what, on which tab, and what came of it. thread_id links decisions
+-- back to the conversation that proposed them (lineage).
+create table if not exists activity (
+  id bigint primary key generated always as identity,
+  created_at timestamptz not null default now(),
+  role text not null default '',
+  tab text not null default '',
+  kind text not null check (kind in ('chat', 'decision', 'action')),
+  summary text not null,
+  detail jsonb not null default '{}',
+  thread_id text
+);
+create index if not exists activity_created on activity (created_at desc);
+alter table activity enable row level security;

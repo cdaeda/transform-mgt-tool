@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -56,7 +57,9 @@ export async function POST(req: Request) {
     if (!res.parsed_output) return Response.json({ error: `Extraction failed (${res.stop_reason}).` }, { status: 502 });
     const rows = res.parsed_output.ideas.map((i) => ({ ...i, source: source || "(unnamed)" }));
     if (!rows.length) return Response.json([]);
-    return Response.json(await sql<FinancingIdea[]>`insert into financing_ideas ${sql(rows)} returning *`);
+    const saved = await sql<FinancingIdea[]>`insert into financing_ideas ${sql(rows)} returning *`;
+    await logActivity(req, "action", `Extracted ${saved.length} financing ideas${source ? ` from ${source}` : ""}`, { ideas: saved.map((r) => r.id) });
+    return Response.json(saved);
   } catch (err) {
     const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
     return Response.json({ error: msg }, { status: 500 });
@@ -66,6 +69,8 @@ export async function POST(req: Request) {
 // Pick / reject an idea and record what we want to do with it.
 export async function PATCH(req: Request) {
   const body = await req.json();
-  const [row] = await sql`update financing_ideas set ${sql(pick(body, ["status", "our_notes"]))} where id = ${body.id} returning *`;
+  const fields = pick(body, ["status", "our_notes", "year", "scale"]);
+  const [row] = await sql`update financing_ideas set ${sql(fields)} where id = ${body.id} returning *`;
+  await logActivity(req, fields.status ? "decision" : "action", fields.status ? `Capital strategy → ${row.status}: ${row.name}` : `Edited capital strategy: ${row.name}`, { idea: row.id, changed: Object.keys(fields) });
   return Response.json(row);
 }

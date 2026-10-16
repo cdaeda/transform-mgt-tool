@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Card } from "@/lib/db";
 import { unitsCol } from "@/lib/impact";
+import { Comeback } from "./comeback";
 import { useOverview } from "./overview-store";
 
 type TeamFin = { team: number; company: string; location: string; years: { completed: boolean; revenue: number; ebitda: number; net: number; cash: number; cap: number; eps: number }[] };
@@ -146,6 +147,7 @@ export function InvestorRelationsPanel({ ask, version }: { ask: (t: string) => v
           <button onClick={() => ask("Which analyst cards are hurting our market cap this year, and the fastest legitimate moves (board squares, Management Events, cards) to earn Buy or Outperform ratings? Rank them.")} className={`${btn} border border-zinc-400`}>How do we fix our ratings?</button>
         </div>
       </div>
+      <Comeback version={version} />
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="game-card"><p className="eyebrow text-zinc-500">Share price · Y{d.year}</p><p className="font-display text-3xl">{per(d.certificate.price[i], 2)}</p></div>
         <div className="game-card"><p className="eyebrow text-zinc-500">EPS · Y{d.year}</p><p className="font-display text-3xl">{per(d.certificate.eps[i], 3)}</p></div>

@@ -346,7 +346,7 @@ const REC_STYLE: Record<string, string> = { USE: "text-green-700 dark:text-green
 function IdeaRow({ idea, onChange, ask }: { idea: FinancingIdea; onChange: (f: FinancingIdea) => void; ask: (t: string) => void }) {
   const [notes, setNotes] = useState(idea.our_notes);
   const patch = (p: Partial<FinancingIdea>) => api<FinancingIdea>("/api/financing", "PATCH", { id: idea.id, ...p }).then(onChange);
-  const border = idea.status === "picked" ? "border-green-600" : idea.status === "rejected" ? "border-zinc-200 dark:border-zinc-800 opacity-60" : "border-zinc-300 dark:border-zinc-700";
+  const border = idea.status === "locked" ? "border-green-600" : idea.status === "rejected" ? "border-zinc-200 dark:border-zinc-800 opacity-60" : "border-zinc-300 dark:border-zinc-700";
   return (
     <li className={`game-card border-l-4 ${border} space-y-1.5`}>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -355,7 +355,7 @@ function IdeaRow({ idea, onChange, ask }: { idea: FinancingIdea; onChange: (f: F
         <span className="text-xs text-zinc-500">{idea.amount} · {idea.cost} · <span className={REC_STYLE[idea.recommendation]}>AI: {idea.recommendation}</span> · {idea.source}</span>
         <select value={idea.status} onChange={(e) => patch({ status: e.target.value as FinancingIdea["status"] })} aria-label="Pick"
           className="ml-auto text-sm rounded border border-zinc-300 dark:border-zinc-700 bg-transparent">
-          <option value="idea">Idea</option><option value="picked">Picked</option><option value="rejected">Rejected</option>
+          <option value="idea">Idea</option><option value="pitching">Pitching</option><option value="locked">Locked in</option><option value="rejected">Rejected</option>
         </select>
       </div>
       <p className="text-sm">{idea.how_it_works}</p>
@@ -367,7 +367,7 @@ function IdeaRow({ idea, onChange, ask }: { idea: FinancingIdea; onChange: (f: F
         <h4 className="font-semibold mt-1">Risks</h4><Markdown>{idea.risks}</Markdown>
         {idea.source_quote && <blockquote className="italic text-zinc-500 border-l-2 pl-2 mt-1">&ldquo;{idea.source_quote}&rdquo;</blockquote>}
       </details>
-      {idea.status === "picked" && (
+      {idea.status === "locked" && (
         <button onClick={() => ask(`We picked financing option #${idea.id} "${idea.name}". Our plan: ${notes || "(not written yet)"}. Model it in the Team 1 workbook (debt block, interest in column K, cash in N) for the right years - say the exact cells first, keep everything consistent for the auditor - and tell me the effect on EPS, interest/revenue and debt-to-assets.`)}
           className={`${btn} border border-zinc-400`}>Model it with the CFO</button>
       )}
@@ -397,7 +397,7 @@ export function FinancingPanel({ ask }: { ask: (t: string) => void }) {
     setBusy(false);
   }
   const update = (f: FinancingIdea) => setIdeas((xs) => xs.map((x) => (x.id === f.id ? f : x)));
-  const picked = ideas.filter((i) => i.status === "picked");
+  const picked = ideas.filter((i) => i.status === "locked");
   const ranked = ideas.filter((i) => i.rank !== null).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
   const rest = ideas.filter((i) => i.rank === null);
   const categories = [...new Set(rest.map((i) => i.category))];
@@ -412,7 +412,7 @@ export function FinancingPanel({ ask }: { ask: (t: string) => void }) {
           </div>
           <ol className="space-y-3">
             {ranked.map((i) => (
-              <li key={i.id} className={`game-card grid gap-3 sm:grid-cols-[4rem_1fr] ${i.status === "picked" ? "ring-2 ring-green-700" : i.status === "rejected" ? "opacity-60" : ""}`}>
+              <li key={i.id} className={`game-card grid gap-3 sm:grid-cols-[4rem_1fr] ${i.status === "locked" ? "ring-2 ring-green-700" : i.status === "rejected" ? "opacity-60" : ""}`}>
                 <div className="font-display text-6xl leading-none text-amber-600 num" aria-label={`Rank ${i.rank}`}>{i.rank}</div>
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-baseline gap-2">
@@ -420,7 +420,7 @@ export function FinancingPanel({ ask }: { ask: (t: string) => void }) {
                     <span className={`eyebrow ${REC_STYLE[i.recommendation]}`}>AI: {i.recommendation}</span>
                     <select value={i.status} onChange={(e) => api<FinancingIdea>("/api/financing", "PATCH", { id: i.id, status: e.target.value }).then(update)}
                       aria-label={`Pick ${i.name}`} className="ml-auto text-sm rounded-md border border-zinc-300 dark:border-zinc-700">
-                      <option value="idea">Idea</option><option value="picked">Picked</option><option value="rejected">Rejected</option>
+                      <option value="idea">Idea</option><option value="pitching">Pitching</option><option value="locked">Locked in</option><option value="rejected">Rejected</option>
                     </select>
                   </div>
                   <p className="text-sm">{i.how_it_works}</p>
@@ -430,7 +430,7 @@ export function FinancingPanel({ ask }: { ask: (t: string) => void }) {
                     <p><span className="eyebrow text-red-600">Watch out </span>{i.risks}</p>
                   </div>
                   <p className="text-xs text-zinc-500">{i.source}</p>
-                  {i.status === "picked" && (
+                  {i.status === "locked" && (
                     <button onClick={() => ask(`We picked funding play #${i.rank} "${i.name}". Size it for us (the cash gap, H2 satellite data, H3 partners), say what we'd ask the lead lender, and model it in the Team 1 workbook if it changes debt, interest, cash or shares - exact cells first.`)}
                       className={`${btn} border border-zinc-400`}>Size it with the CFO</button>
                   )}
@@ -589,8 +589,9 @@ export function MarketCapBar({ version }: { version: number }) {
           </div>
         ))}
       </div>
-      <details className="relative mt-3 text-xs text-white/75">
-        <summary className="cursor-pointer eyebrow text-white/70">What moves our share price</summary>
+      <details className="relative mt-3 text-sm group">
+        <summary className="cursor-pointer eyebrow text-white/80 hover:text-white">What moves our share price</summary>
+        <div className="mt-2 rounded-lg bg-white text-[var(--ink)] dark:bg-zinc-900 dark:text-zinc-100 p-4 shadow-lg space-y-2">
         <p className="mt-1">Market cap here is not a revenue multiple. The workbook adds three parts, and share price = market cap ÷ shares (column P):</p>
         <ul className="list-disc ml-5">
           <li>Each active business model: Core +$0.10 a share (+100M), Growth +$0.50 (+500M), Explore +$1.00 (+1BN).</li>
@@ -598,6 +599,7 @@ export function MarketCapBar({ version }: { version: number }) {
           <li>Cash: +$0.10 a share per $1M (cash × 100), capped at the value of the BMs + analyst cards.</li>
         </ul>
         <p>Revenue and profit count only by building cash and earning better analyst cards. Cell {n2col(5 + 3 * (d.year - 1))}260 holds this year&rsquo;s total.</p>
+        </div>
       </details>
     </section>
   );

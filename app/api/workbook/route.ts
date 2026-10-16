@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { cfoOnly } from "@/lib/role-guard";
 import { saveWorkbook, workbookFile } from "@/lib/sheet";
 
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) return Response.json({ error: "file is required" }, { status: 400 });
   try {
     const changes = await saveWorkbook(file.name, Buffer.from(await file.arrayBuffer()));
+    await logActivity(req, "decision", `Uploaded workbook ${file.name}`, { changes });
     return Response.json({ ok: true, filename: file.name, changes });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });

@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { gated } from "@/lib/critic";
 import { pick, sql } from "@/lib/db";
 import { Proposal } from "@/lib/proposals";
@@ -8,7 +9,7 @@ export const maxDuration = 300;
 // Accept or reject one proposal from the copilot. Accepted ones are applied; every decision is
 // written to organizational memory so the copilot learns what the team wants.
 export async function POST(req: Request) {
-  const { proposal, decision, note = "", source = "" } = await req.json();
+  const { proposal, decision, note = "", source = "", threadId = null } = await req.json();
   const parsed = Proposal.safeParse(proposal);
   if (!parsed.success) return Response.json({ error: "Malformed proposal" }, { status: 400 });
   const p = parsed.data;
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
 
   if (decision !== "accept") {
     await remember("decision", `Rejected: ${p.summary}${note ? ` (why: ${note})` : ""}`);
+    await logActivity(req, "decision", `Rejected ${p.kind}: ${p.summary}`, { proposal: p, note }, threadId);
     return Response.json({ ok: true, applied: false });
   }
   try {
@@ -47,9 +49,11 @@ export async function POST(req: Request) {
         break;
       case "knowledge":
         await remember("insight", p.summary);
+        await logActivity(req, "decision", `Saved to memory: ${p.summary}`, { proposal: p }, threadId);
         return Response.json({ ok: true, applied: true });
     }
     await remember("decision", `Accepted: ${p.summary}${detail}`);
+    await logActivity(req, "decision", `Accepted ${p.kind}: ${p.summary}${detail}`, { proposal: p }, threadId);
     return Response.json({ ok: true, applied: true, detail });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });

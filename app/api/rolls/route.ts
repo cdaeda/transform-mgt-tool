@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { gated } from "@/lib/critic";
 import { sql, type Strategy } from "@/lib/db";
 import { num } from "@/lib/impact";
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
   const [st] = await sql<Strategy[]>`select current_year from strategy where id = 1`;
   const y = st.current_year;
   const [roll] = await sql`insert into rolls ${sql({ year: y, square, note })} returning *`;
+  await logActivity(req, "action", `Rolled: ${square}${note ? ` (${note})` : ""}`, { roll: roll.id, year: y });
   const [{ n }] = await sql<{ n: number }[]>`select count(*)::int as n from rolls where year = ${y}`;
   if (!cfo) return Response.json({ roll, rollsThisYear: n, error: `Roll #${n} logged. Only the CFO books numbers: the $100k is waiting for the CFO to book it (Cards tab).` });
   try {

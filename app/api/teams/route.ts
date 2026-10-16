@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -22,6 +23,7 @@ export async function PUT(req: Request) {
     insert into teams ${sql(row)}
     on conflict (team_number) do update set ${sql(row)}
     returning *`;
+  await logActivity(req, "action", `Updated notes on team ${team.team_number}`, { team: team.team_number });
   return Response.json(team);
 }
 
@@ -59,6 +61,7 @@ export async function POST(req: Request) {
       insert into teams ${sql(row)}
       on conflict (team_number) do update set ${sql(row)}
       returning *`;
+    await logActivity(req, "action", `Profiled team ${n}`, { team: n });
     return Response.json(saved);
   } catch (err) {
     const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);

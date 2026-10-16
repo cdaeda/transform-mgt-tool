@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -41,7 +42,9 @@ ${context}`,
     });
     if (!res.parsed_output?.tasks.length) return Response.json({ error: `Couldn't plan tasks (${res.stop_reason}).` }, { status: 502 });
     const rows = res.parsed_output.tasks.map((t) => ({ ...t, source: source.slice(0, 200) }));
-    return Response.json(await sql`insert into tasks ${sql(rows)} returning *`);
+    const tasks = await sql`insert into tasks ${sql(rows)} returning *`;
+    await logActivity(req, "action", `Planned ${tasks.length} tasks (${[...new Set(tasks.map((t) => t.role))].join(", ")}) from ${source}`, { tasks: tasks.map((t) => t.id) });
+    return Response.json(tasks);
   } catch (err) {
     const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
     return Response.json({ error: msg }, { status: 500 });

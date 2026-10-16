@@ -5,9 +5,9 @@ import { Markdown } from "./markdown";
 
 export type Chip = { label: string; mode: "evaluate_card" | "chat" | "create_tasks"; prompt: string };
 type Proposal = { kind: string; summary: string; [k: string]: unknown };
-type Decided = Proposal & { state?: "accepted" | "rejected" | "error"; info?: string };
+type Decided = Proposal & { state?: "accepted" | "rejected" | "error" | "past"; info?: string };
 export type Msg = {
-  role: "user" | "assistant"; content: string; image?: string; chips?: Chip[]; note?: boolean;
+  role: "user" | "assistant"; content: string; image?: string; chips?: Chip[]; note?: boolean; by?: string;
   proposals?: Decided[]; choices?: { question: string; options: string[] }[];
 };
 export type ActTask = { id: number; role: string; title: string; detail: string; due: string };
@@ -25,9 +25,16 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   return d;
 }
 
-// The CFO copilot. Threads can start from the capture modal (photo or text) with option chips;
-// any action taken is turned into tasks for every role.
-export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }: {
+const myRole = () => (typeof document === "undefined" ? "" : document.cookie.match(/(?:^|;\s*)transform_role=([A-Z]+)/)?.[1] ?? "");
+export type Pending = { tab: string; title: string; text: string } | null;
+
+// One copilot per tab, each with its own thread (the latest one is reloaded on open). Only the active
+// tab's copilot answers the page's refs. Threads can start from the capture modal (photo or text) with
+// option chips; any action taken is turned into tasks for every role.
+export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, noteRef, actRef, onTasks }: {
+  tab: string;
+  active: boolean;
+  pendingRef: RefObject<Pending>;
   actRef: RefObject<(task: ActTask) => void>;
   onReply: () => void;
   askRef: RefObject<(text: string) => void>;
@@ -43,6 +50,16 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
   const [busy, setBusy] = useState("");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs, busy]);
+  // Reopen this tab's latest thread (decided proposals show as past; the Activity tab has the outcome).
+  const touched = useRef(false);
+  useEffect(() => {
+    fetch(`/api/chat?tab=${encodeURIComponent(tab)}`).then((r) => r.json()).then((t) => {
+      if (!t || touched.current) return;
+      setThread({ id: t.id, mode: t.task_id ? "act" : "chat", taskId: t.task_id });
+      setTitle(t.title);
+      setMsgs((t.messages as Msg[]).map((m) => ({ ...m, proposals: m.proposals?.map((p) => ({ ...p, state: "past" as const })) })));
+    }).catch(() => {});
+  }, [tab]);
 
   const seed = msgs.find((m) => m.role === "user");
   const threadSummary = (list: Msg[]) =>
@@ -63,17 +80,18 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
 
   async function send(text: string, base = msgs, threadOverride?: typeof thread, titleOverride?: string) {
     if (!text.trim() || busy) return base;
-    const next: Msg[] = [...base, { role: "user", content: text }];
+    touched.current = true;
+    const next: Msg[] = [...base, { role: "user", content: text, by: myRole() }];
     setMsgs(next);
     setInput("");
     setBusy("Thinking & checking the workbook…");
-    const payload = next.filter((m) => !m.note).map(({ role, content, image }) => ({ role, content, image }));
+    const payload = next.filter((m) => !m.note).map(({ role, content, image, by }) => ({ role, content, image, by }));
     let t = threadOverride ?? thread;
     if (!t.id) {
       t = { ...t, id: newId() };
       setThread(t);
     }
-    const r = await fetch("/api/chat", { method: "POST", body: JSON.stringify({ messages: payload, mode: t.mode, threadId: t.id, taskId: t.taskId, title: titleOverride ?? title }) });
+    const r = await fetch("/api/chat", { method: "POST", body: JSON.stringify({ messages: payload, mode: t.mode, threadId: t.id, taskId: t.taskId, title: titleOverride ?? title, tab }) });
     const { text: reply, proposals = [], choices = [] } = await r.json();
     const done: Msg[] = [...next, { role: "assistant", content: reply, proposals, choices }];
     setMsgs(done);
@@ -113,7 +131,7 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
   async function decide(mi: number, pi: number, decision: "accept" | "reject") {
     const p = msgs[mi].proposals![pi];
     const note = decision === "reject" ? prompt("Why reject it? (optional — the copilot learns from this)") ?? "" : "";
-    const r = await fetch("/api/proposals", { method: "POST", body: JSON.stringify({ proposal: p, decision, note, source: title || "copilot" }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+    const r = await fetch("/api/proposals", { method: "POST", body: JSON.stringify({ proposal: p, decision, note, source: title || "copilot", threadId: thread.id || null }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
     const state: Decided["state"] = r.error ? "error" : decision === "accept" ? "accepted" : "rejected";
     setMsgs((all) => all.map((m, i) => (i !== mi ? m : { ...m, proposals: m.proposals!.map((q, j) => (j !== pi ? q : { ...q, state, info: r.error ?? r.detail })) })));
     if (r.error || decision !== "accept") return;
@@ -121,9 +139,24 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
     if (["task", "task_status"].includes(p.kind)) onTasks();
   }
 
+  // Runs every render on purpose (refs must point at the live closures); the pending start is consumed once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (!active) return;
+    // A fresh, titled thread that starts working immediately (Next-move buttons), once its tab is open.
+    const p = pendingRef.current;
+    if (p && p.tab === tab) {
+      pendingRef.current = null;
+      touched.current = true;
+      const th = { id: newId(), mode: "chat" as const, taskId: null };
+      setThread(th);
+      setTitle(p.title);
+      setMsgs([]);
+      void send(p.text, [], th, p.title);
+    }
     askRef.current = (t: string) => void send(t); // panels hand questions to the copilot
     actRef.current = (task: ActTask) => {
+      touched.current = true;
       const t = { id: newId(), mode: "act" as const, taskId: task.id };
       setThread(t);
       setTitle(task.title);
@@ -135,6 +168,7 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
       onReply();
     };
     threadRef.current = (s: Seed) => {
+      touched.current = true;
       setThread({ id: "", mode: "chat", taskId: null });
       setTitle(s.title);
       setMsgs([
@@ -149,19 +183,20 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
       {title && (
         <div className="flex items-center justify-between gap-2">
           <p className="eyebrow text-zinc-500 truncate">{thread.mode === "act" ? "⚡ Working task" : "Thread"} · {title}</p>
-          <button onClick={() => (setMsgs([]), setTitle(""), setThread({ id: "", mode: "chat", taskId: null }))} className="text-xs underline shrink-0">New chat</button>
+          <button onClick={() => (touched.current = true, setMsgs([]), setTitle(""), setThread({ id: "", mode: "chat", taskId: null }))} className="text-xs underline shrink-0">New chat</button>
         </div>
       )}
       <div className="flex-1 overflow-y-auto space-y-3 text-sm">
         {msgs.length === 0 && (
           <p className="text-zinc-500">
-            Ask your AI CFO anything, or use <b>＋ Capture</b> to snap a card or handout. Try &ldquo;What happens to market cap if we draw the 25M bank loan?&rdquo;
+            Ask the {tab} copilot about this tab, or use <b>＋ Capture</b> to snap a card or handout. Everyone on the team shares this thread, and each message shows who sent it.
           </p>
         )}
         {msgs.map((m, i) => (
           <div key={i} className={m.note ? "text-xs text-zinc-600 dark:text-zinc-400 px-1" : `rounded-lg p-2.5 ${m.role === "user" ? "bg-indigo-50 dark:bg-indigo-950 ml-6" : "bg-zinc-100 dark:bg-zinc-900 mr-6"}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- local capture preview */}
             {m.image && <img src={`data:image/jpeg;base64,${m.image}`} alt="Captured" className="rounded-md mb-2 max-h-48 w-auto" />}
+            {m.role === "user" && m.by && <p className="eyebrow text-indigo-700 dark:text-indigo-300 mb-0.5">{m.by}</p>}
             {m.role === "assistant" && !m.note ? <Markdown>{m.content}</Markdown> : <div className="whitespace-pre-wrap">{m.content}</div>}
             {m.chips && m.chips.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="What should I do?">
@@ -196,7 +231,7 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
                         <button onClick={() => decide(i, pi, "accept")} className="rounded px-2 py-0.5 text-xs font-semibold bg-green-700 text-white">✓ Accept</button>
                         <button onClick={() => decide(i, pi, "reject")} className="rounded px-2 py-0.5 text-xs border border-zinc-400">✕ Reject</button>
                       </div>
-                    ) : <p className="text-xs mt-1">{p.state === "accepted" ? `✓ Accepted${p.info ?? ""}` : p.state === "rejected" ? "✕ Rejected — noted" : `⚠ ${p.info}`}</p>}
+                    ) : <p className="text-xs mt-1">{p.state === "past" ? "Proposed earlier · the decision is in Activity" : p.state === "accepted" ? `✓ Accepted${p.info ?? ""}` : p.state === "rejected" ? "✕ Rejected — noted" : `⚠ ${p.info}`}</p>}
                   </div>
                 ))}
                 {m.proposals.filter((p) => !p.state).length > 1 && (
@@ -212,9 +247,11 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }
         {busy && <p className="text-zinc-500 animate-pulse">{busy}</p>}
         <div ref={end} />
       </div>
-      <button onClick={() => send(PITCH_PROMPT)} disabled={!!busy} className="rounded-md bg-amber-600 text-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
-        Draft Round 3 board pitch ($50B Finish Line)
-      </button>
+      {tab === "Dashboard" && (
+        <button onClick={() => send(PITCH_PROMPT)} disabled={!!busy} className="rounded-md bg-amber-600 text-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
+          Draft Round 3 board pitch ($50B Finish Line)
+        </button>
+      )}
       <form onSubmit={(e) => (e.preventDefault(), send(input))} className="flex gap-2">
         <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2} aria-label="Message"
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send(input))}

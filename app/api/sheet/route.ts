@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activity";
 import { cfoOnly } from "@/lib/role-guard";
 import { readRange, writeRange } from "@/lib/sheet";
 
@@ -19,7 +20,9 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const { range, values } = await req.json();
   try {
-    return Response.json(await writeRange(range, values));
+    const r = await writeRange(range, values);
+    await logActivity(req, "decision", `Workbook edit ${range} = ${JSON.stringify(values)}`, { range, values });
+    return Response.json(r);
   } catch (e) {
     return fail(e);
   }

@@ -10,7 +10,7 @@ export const Proposal = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("task"), summary: z.string(), role: z.enum(ROLE_IDS), title: z.string(), detail: z.string(), due: z.string() }),
   z.object({ kind: z.literal("task_status"), summary: z.string().describe("For 'done': the result of the task in 1-3 sentences - saved to organizational memory"), id: z.number().int(), status: z.enum(["todo", "doing", "done"]) }),
   z.object({ kind: z.literal("card"), summary: z.string(), id: z.number().int(), status: z.enum(["candidate", "selected", "passed"]).optional(), our_notes: z.string().optional() }),
-  z.object({ kind: z.literal("financing"), summary: z.string(), id: z.number().int(), status: z.enum(["idea", "picked", "rejected"]).optional(), our_notes: z.string().optional() }),
+  z.object({ kind: z.literal("financing"), summary: z.string(), id: z.number().int(), status: z.enum(["idea", "pitching", "locked", "rejected"]).optional(), our_notes: z.string().optional() }),
   z.object({ kind: z.literal("knowledge"), summary: z.string().describe("The insight or decision to remember, one or two sentences") }),
 ]);
 export type ProposalT = z.infer<typeof Proposal>;
