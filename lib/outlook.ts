@@ -10,7 +10,7 @@ export const NEW_NAME = "Terralink";
 
 export type Outlook = {
   toYear: number;
-  vehicleGrowth: number; // %/yr on this year's vehicle (Core + Growth BM) revenue; costs scale with it
+  vehicleGrowth: number; // %/yr on top of the workbook's own vehicle (Core + Growth BM) revenue per year; costs scale with it
   nexusGmv: number[]; // $M of Dragon Nexus marketplace transactions per year (index = game year - 1)
   takeRate: number; // % we keep of each transaction (the strategy's illustrative example: 20%)
   nexusCost: number[]; // $M/yr to run Dragon Nexus
@@ -37,6 +37,7 @@ export type Outlook = {
 export type OutlookBase = {
   now: number;
   vehicleRev: number; vehicleCost: number; // this year, $ (Core + Growth BMs)
+  vehicleRevY?: number[]; vehicleCostY?: number[]; // the workbook's per-year figures (index = game year - 1)
   exploreRev: number; exploreCost: number;
   costBase: number; interest: number; depreciation: number; oneTime: number; shares: number;
 };
@@ -56,7 +57,9 @@ export function outlook(b: OutlookBase, o: Outlook) {
   for (let year = b.now; year <= Math.min(10, o.toYear); year++) {
     const i = year - 1, t = year - b.now, g = (1 + o.vehicleGrowth / 100) ** t;
     const sold = o.saleYear > 0 && year > o.saleYear; // Terralink only
-    const vehicles = sold ? 0 : b.vehicleRev * g, vehicleCost = sold ? 0 : b.vehicleCost * g;
+    // The workbook's own projection for that year (booked BMs), grown by the team's assumption.
+    const wbRev = b.vehicleRevY?.[i] ?? b.vehicleRev, wbCost = b.vehicleCostY?.[i] ?? b.vehicleCost;
+    const vehicles = sold ? 0 : wbRev * g, vehicleCost = sold ? 0 : wbCost * g;
     const nexus = sold ? 0 : (((o.nexusGmv[i] ?? 0) * o.takeRate) / 100) * M, nexusCost = sold ? 0 : (o.nexusCost[i] ?? 0) * M;
     const other = (o.otherRevenue[i] ?? 0) * M + (t === 0 ? b.exploreRev : 0), otherCost = (o.otherCost[i] ?? 0) * M + (t === 0 ? b.exploreCost : 0);
     const oneTime = t === 0 ? b.oneTime : 0;
@@ -115,6 +118,8 @@ export function outlookBaseFrom(snap: SnapLike, now: number): OutlookBase {
   const i = now - 1, at = (r: number) => snap.seg[r]?.[i] ?? 0, y = snap.years[i];
   return {
     now, vehicleRev: at(68) + at(86), vehicleCost: at(128) + at(146), exploreRev: at(104), exploreCost: at(164),
+    vehicleRevY: Array.from({ length: 10 }, (_, k) => (snap.seg[68]?.[k] ?? 0) + (snap.seg[86]?.[k] ?? 0)),
+    vehicleCostY: Array.from({ length: 10 }, (_, k) => (snap.seg[128]?.[k] ?? 0) + (snap.seg[146]?.[k] ?? 0)),
     costBase: y.costBase, interest: y.interest, depreciation: y.depreciation, oneTime: y.oneTime, shares: y.shares || 1e9,
   };
 }

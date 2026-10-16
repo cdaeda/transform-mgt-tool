@@ -26,4 +26,7 @@ assert.equal(r.rows[2].vehicles, 0); // the vehicle business is gone
 assert.equal(r.rows[2].interest, 0); // debt repaid
 assert.ok(r.roi && r.roi.dividends > 16); // at least the special dividend
 assert.ok(r.rows[2].cashPerShare > 25); // Terralink holds 40% of ~$54B on ~0.7BN shares
+// With the workbook's per-year projection, later years follow it (not this year's figure).
+const wb = outlook({ ...base, vehicleRevY: [100e6, 150e6, 150e6, 0, 0, 0, 0, 0, 0, 0], vehicleCostY: [60e6, 60e6, 60e6, 0, 0, 0, 0, 0, 0, 0] }, o);
+assert.equal(wb.rows[1].vehicles, 150e6);
 console.log("outlook ok");
