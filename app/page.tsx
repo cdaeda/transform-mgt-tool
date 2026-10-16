@@ -1,5 +1,6 @@
 "use client";
 
+import { NexusMark } from "./nexus-mark";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { col2n, freeRow, n2col } from "@/lib/impact";
 const freeRowIndex = (rows: Cell[][]) => { const r = freeRow(0, rows); return r === null ? -1 : r; };
@@ -291,8 +292,9 @@ export default function Home() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className="wordmark text-xl sm:text-2xl">TRANSFORM!</span>
             <span className="eyebrow rounded border border-[var(--gold)]/70 text-[var(--gold)] px-1.5 py-0.5 shrink-0">Mgt Tool</span>
-            <span className="font-display uppercase tracking-wider text-white/90 text-base sm:text-lg truncate">Flying Dragon<span className="hidden sm:inline"> · CFO desk</span></span>
-            <span className="eyebrow text-white/60 hidden sm:inline">Team 1</span>
+            <NexusMark size={26} className="shrink-0" />
+            <span className="font-display uppercase tracking-wider text-white/90 text-base sm:text-lg truncate">Nexus<span className="hidden sm:inline"> · CFO desk</span></span>
+            <span className="eyebrow text-white/60 hidden lg:inline">GN · Relay · Flying Dragon</span>
             <span className="hidden sm:flex"><YearRound version={version} onChange={bump} /></span>
           </div>
           <div className="flex items-center gap-2 ml-auto sm:ml-0 order-last sm:order-none">

@@ -533,8 +533,8 @@ function GoalTrack({ now, parts, cash, cashCounted, sells }: { now: number; part
   return (
     <div className="relative mt-5 space-y-1.5">
       <div className="flex justify-between eyebrow text-white/75">
-        <span>Goal $50B · {$M(Math.max(0, 50000 - now))} to go</span>
-        <span className="text-amber-300 whitespace-nowrap">Next: {next === 0 ? "$0" : $M(next)} ({$M(next - now)} away)</span>
+        <span>Goal $50B · {now >= 50000 ? `reached, ${$M(now - 50000)} past it` : `${$M(50000 - now)} to go`}</span>
+        {now < 50000 && <span className="text-amber-300 whitespace-nowrap">Next: {next === 0 ? "$0" : $M(next)} ({$M(next - now)} away)</span>}
       </div>
       <div className="relative h-3 rounded-full bg-white/12" role="progressbar" aria-label="Market cap toward $50B" aria-valuemin={lo} aria-valuemax={hi} aria-valuenow={now} aria-valuetext={`${$M(now)} of $50B`}>
         <span className="absolute inset-y-0 rounded-full" style={{ left: `${at(Math.min(0, now))}%`, width: `${Math.abs(at(now) - at(0))}%`, background: now < 0 ? "#ff9aa2" : "linear-gradient(90deg,#f3d77a,var(--gold))" }} />
@@ -584,7 +584,7 @@ export function MarketCapBar({ version }: { version: number }) {
     return (
       <section className="certificate certificate-loading p-6 h-56 sm:h-48" aria-label="Loading market cap" aria-busy="true">
         <Guilloche />
-        <p className="relative eyebrow text-amber-300">Flying Dragon · share certificate</p>
+        <p className="relative eyebrow text-amber-300">Nexus · share certificate</p>
         <p className="relative figure text-6xl mt-2 text-white/30">$&thinsp;···</p>
         <p className="relative eyebrow text-white/60 mt-2">Engraving the latest numbers…</p>
       </section>
@@ -597,7 +597,7 @@ export function MarketCapBar({ version }: { version: number }) {
       <div className="relative grid gap-5 md:grid-cols-[1fr_auto] items-end">
         <div>
           <p className="eyebrow text-amber-300 flex flex-wrap items-center gap-x-2">
-            <span>Flying Dragon · share certificate · Year {d.year}</span>
+            <span>Nexus · share certificate · Year {d.year}</span>
             <button onClick={() => refreshOverview()} className="text-white/60 hover:text-white normal-case tracking-normal" title="Refresh from the workbook">
               {o?.refreshing ? <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />updating…</span> : `↻ ${o ? ago(o.at) : ""}`}
             </button>

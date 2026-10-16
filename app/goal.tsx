@@ -10,9 +10,10 @@ const capM = (m: number) => {
 
 // "$50B by Year N": where we are, the straight-line path we need, and what our capital plan projects -
 // each projected year split into cash, business models and analyst ratings.
-export function GoalPath({ today, strats, goalYear, goalCap, includePitching = false, compact = false, onOpen }: {
+export function GoalPath({ today, strats, goalYear: goalYear0, goalCap, includePitching = false, compact = false, onOpen }: {
   today: Today; strats: Strat[]; goalYear: number; goalCap: number; includePitching?: boolean; compact?: boolean; onOpen?: () => void;
 }) {
+  const goalYear = Math.max(goalYear0, today.year); // a goal year already passed means "this year"
   const need = requiredPath(project(today, [], goalYear)[0].total, today.year, goalYear, goalCap);
   const plan = project(today, strats, goalYear, (s) => s.status === "locked" || (includePitching && s.status === "pitching"));
   const end = plan[plan.length - 1];

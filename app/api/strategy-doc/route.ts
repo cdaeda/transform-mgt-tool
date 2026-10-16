@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   return new Response(html, {
     headers: {
       "content-type": word ? "application/msword" : "text/html; charset=utf-8",
-      ...(word ? { "content-disposition": `attachment; filename="Dragon-Drive-Strategy-${stamp}.doc"` } : {}),
+      ...(word ? { "content-disposition": `attachment; filename="Nexus-Strategy-${stamp}.doc"` } : {}),
     },
   });
 }
@@ -33,19 +33,22 @@ export async function GET(req: Request) {
 export async function POST() {
   try {
     // Streamed: the document is long, so it needs a big output budget.
-    const data = await aiJson({ tier: "pro", maxTokens: 60000, schema: StrategyDoc, system: await buildContext(), prompt: `Write the current strategy and investment case ("Flying Dragon: Build the Vehicles. Own the Intelligence Network." - Dragon Nexus) for our board and investors - the kind of
-document a company issues when asking for capital, but do NOT call it a prospectus. Use our ambition, core
-strategy, the three horizons (H1 build the vehicles and fund the transformation; H2 launch the Dragon Nexus
-marketplace pilot; H3 own the intelligence network), the manufacturing -> pilot -> network -> capped research
-sequence, the three-buyer funding structure, the tuner knob's target mix vs actual, our horizon targets, cards and their horizon
-fit, picked and top-ranked financing plays, rival profiles and the LIVE workbook figures.
+    const data = await aiJson({ tier: "pro", maxTokens: 60000, schema: StrategyDoc, system: await buildContext(), prompt: `Write the current strategy and investment case for NEXUS - the three-way merger of equals of Flying Dragon,
+GN-Automaker and Relay - for our board and investors: the kind of document a company issues when asking for capital,
+but do NOT call it a prospectus. Cover: why the merger works (energy, chip manufacturing, fintech and mobility give a
+complete foundation; Terralink adds space; one Nexus AI layer connects the units so the group scales); what each company
+brings; the five business units and their leadership; the combined portfolio and market cap from the LIVE workbook (say
+plainly how the cash term is counted and that the facilitator caps it); the debt we carry and how we make it carriable;
+the growth and Explore priorities and the discipline (test, reward winners, drop losers); the capital plan ("how are we
+going to pay for this?"); risks and the assumptions to confirm.
+The roadmap's three horizons are Nexus's own (H1 Core: run and strengthen the merged core businesses; H2 Growth: scale
+with the AI layer across the units; H3 Explore: disciplined options in energy, wind, chips, fintech, space) - not the old
+Flying Dragon / Dragon Nexus horizons.
 
 Rules: never invent statistics, quotes or partner names - use [bracketed placeholders] and list them under
 assumptions. Keep revenue, valuation, capex/opex and debt in separate lanes (the facilitators criticised
-mixing them). Answer "how are we going to pay for this?" explicitly in the capital plan. Mark unconfirmed
-items (Dragon Nexus itself, Dragon Ledger and Dragon Credits, the $100/$80/$20 pricing example, which is
-illustrative only, partner terms, horizon timing unless set) as proposed. Keep subspace communications out of
-the base case (capped research option) and address the $900M 2030 debt and the lead lender's consent.
+mixing them). Mark unconfirmed items (unit membership of each BM, swap ratio, conversion terms, acquisitions) as proposed.
+The theme line is "The dragon is shedding" - never "shedding its skin".
 Plain, confident board English; short paragraphs; about 3,000-4,000 words in total.` });
     const parsed = { data };
     const [row] = await sql`insert into strategy_docs ${sql({ content: sql.json(parsed.data) })} returning content, created_at`;

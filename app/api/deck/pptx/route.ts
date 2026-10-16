@@ -43,7 +43,7 @@ export async function GET() {
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
   pptx.title = deck.title;
-  pptx.company = "Flying Dragon";
+  pptx.company = "Nexus";
 
   // The built-in "Why $60B" slide goes right after the acquisition slide.
   const why0 = out.saleYear && out.bridge ? whyPriceSlide(ol.rows, out) : null;
@@ -197,7 +197,7 @@ export async function GET() {
       slide.addShape(pptx.ShapeType.roundRect, { x: X, y: 3.2, w: Math.max(0.12, W * pct), h: 0.45, fill: { color: GOLD }, line: { color: GOLD }, rectRadius: 0.2 });
       slide.addText("$50B = $50 a share at 1BN shares", { x: X, y: 3.8, w: W, h: 0.4, fontFace: FONT, fontSize: 12, color: GREY });
     }
-    slide.addText(`Flying Dragon · ${DECK_EVENT}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
+    slide.addText(`Nexus · ${DECK_EVENT}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
     slide.addText(`Presenter: ${who(s.speaker)}   ${k + 1}`, { x: 6.7, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY, align: "right" });
   });
 
@@ -218,7 +218,7 @@ export async function GET() {
       slide.addImage({ data: `image/jpeg;base64,${data}`, x, y, w, h });
       if (sh.cap) slide.addText(sh.caption, { x: sh.cap[0], y: sh.cap[1], w: sh.cap[2], h: sh.cap[3], fontFace: FONT, fontSize: 10, color: GREY, align: "center" });
     });
-    if (t.footerLeft) slide.addText(`Flying Dragon · ${DECK_EVENT}`, { x: 0.65, y: 7.03, w: 5.9, h: 0.23, fontFace: FONT, fontSize: 9, color: GREY });
+    if (t.footerLeft) slide.addText(`Nexus · ${DECK_EVENT}`, { x: 0.65, y: 7.03, w: 5.9, h: 0.23, fontFace: FONT, fontSize: 9, color: GREY });
     slide.addText(`Appendix   ${k}`, { x: 6.75, y: 7.03, w: 5.9, h: 0.23, fontFace: FONT, fontSize: 9, color: GREY, align: "right" });
   });
 

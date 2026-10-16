@@ -8,8 +8,8 @@ const body = Source_Sans_3({ variable: "--font-body", subsets: ["latin"] });
 const figures = IBM_Plex_Mono({ variable: "--font-figures", subsets: ["latin"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {
-  title: "Transform CFO",
-  description: "Team 1 CFO dashboard and AI copilot for the Transform! simulator",
+  title: "Nexus · Transform! Mgt Tool",
+  description: "Nexus (GN-Automaker, Relay and Flying Dragon) CFO desk and AI copilot for the Transform! simulator",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

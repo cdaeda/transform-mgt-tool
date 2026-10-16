@@ -1,10 +1,14 @@
 // Pure cell helpers (no I/O), shared by the workbook layer and its check.
 export type Cell = string | number | boolean | null;
-export const TEAM_TAB = "Team 1";
+export const TEAM_TAB = "Team 1"; // the only tab the app may ever write to
+// Since the merger, Nexus's books are GN-Automaker's tab (its Year 4 column is the merged company).
+// Bare ranges read there, so writes through bare ranges are refused: the merged books are read-only here.
+export const READ_TAB = "Team 5";
+export const OUR_TEAM = 5; // our row on the class leaderboard
 
-// Bare "B53:K53" means the Team 1 tab.
+// Bare "B53:K53" means Nexus's tab.
 export function qualify(range: string) {
-  return range.includes("!") ? range : `'${TEAM_TAB}'!${range}`;
+  return range.includes("!") ? range : `'${READ_TAB}'!${range}`;
 }
 
 export function parseRange(range: string) {
@@ -30,7 +34,7 @@ export function coerce(v: Cell): Cell {
 // Validates a write: Team 1 only, never over a formula, never a new formula. null = leave alone.
 export function planWrite(range: string, values: Cell[][], formulas: Cell[][]) {
   const { sheet } = parseRange(range);
-  if (sheet !== TEAM_TAB) throw new Error(`Writes are limited to the ${TEAM_TAB} tab.`);
+  if (sheet !== TEAM_TAB) throw new Error(sheet === READ_TAB ? `Nexus's books ('${READ_TAB}') are read-only in this tool; ask GN's CFO to enter it.` : `Writes are limited to the ${TEAM_TAB} tab.`);
   values.forEach((row, i) =>
     row.forEach((v, j) => {
       if (v === null) return;

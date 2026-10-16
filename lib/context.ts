@@ -82,6 +82,6 @@ ORGANIZATIONAL MEMORY - what the team decided, rejected and learned (newest firs
 re-propose what was rejected unless something changed, and say so when you do:
 ${memory || "(nothing yet)"}
 
-LIVE SHEET SNAPSHOT ('Team 1' summary + market cap block, leaderboard):
+LIVE SHEET SNAPSHOT (Nexus = 'Team 5' summary + market cap block, leaderboard):
 ${sheet}`;
 }

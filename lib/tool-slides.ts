@@ -11,7 +11,7 @@ const shot = (name: string, w: number, h: number, caption: string, box: Box, cap
 
 export const TOOL_SLIDES: ToolSlide[] = [
   {
-    headline: "How we run Flying Dragon: one AI-assisted desk for every role",
+    headline: "How we run Nexus: one AI-assisted desk for every role",
     lede: "Each role works from the same live workbook. The copilot proposes; the team accepts or rejects; a critic audits every number before it is saved.",
     tall: true,
     ledeBox: [0.65, 1.33, 12, 0.29],

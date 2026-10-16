@@ -52,7 +52,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     } else {
       slide.addText(s.bullets.map((t) => ({ text: t, options: { bullet: { code: "25B8" }, breakLine: true } })), { x: 0.6, y: 1.9, w: 12.1, h: 4.8, fontFace: FONT, fontSize: 18, color: INK, valign: "top", paraSpaceAfter: 10 });
     }
-    slide.addText(`Flying Dragon · ${b.label}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
+    slide.addText(`Nexus · ${b.label}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
     slide.addText(`Presenter: ${who(s.speaker)}   ${k + 1}`, { x: 6.7, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY, align: "right" });
   });
   const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;

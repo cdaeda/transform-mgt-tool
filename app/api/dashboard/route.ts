@@ -1,3 +1,4 @@
+import { OUR_TEAM } from "@/lib/cells";
 import { sql, type Card, type FinancingIdea, type Strategy, type Team } from "@/lib/db";
 import { getSnapshot } from "@/lib/snapshot";
 import { outlookBaseFrom } from "@/lib/outlook";
@@ -40,7 +41,7 @@ export async function GET() {
     const total = spend.h1 + spend.h2 + spend.h3;
     const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
 
-    const ours = snap.leaderboard.find((b) => b.team === 1)?.caps[i] ?? 0;
+    const ours = snap.leaderboard.find((b) => b.team === OUR_TEAM)?.caps[i] ?? 0;
     const rank = snap.leaderboard.length ? `#${snap.leaderboard.filter((b) => b.caps[i] > ours).length + 1} of ${snap.leaderboard.length}` : "";
 
     return Response.json({

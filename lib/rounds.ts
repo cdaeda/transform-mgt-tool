@@ -1,3 +1,4 @@
+import { OUR_TEAM } from "@/lib/cells";
 import { sql, type Strategy } from "@/lib/db";
 import { getSnapshot } from "@/lib/snapshot";
 
@@ -10,7 +11,7 @@ export type RoundData = {
 export async function captureRound(label: string) {
   const [[st], snap] = await Promise.all([sql<Strategy[]>`select current_year from strategy where id = 1`, getSnapshot()]);
   const i = st.current_year - 1, y = snap.years[i];
-  const ours = snap.leaderboard.find((b) => b.team === 1)?.caps[i] ?? y.cap;
+  const ours = snap.leaderboard.find((b) => b.team === OUR_TEAM)?.caps[i] ?? y.cap;
   const data: RoundData = {
     cap: y.cap, price: y.price, eps: y.eps, revenue: y.revenue + y.oneTime, ebitda: y.ebitda, net: y.net, cash: y.cash,
     units: { core: snap.units[0]?.[i] ?? 0, growth: snap.units[1]?.[i] ?? 0, explore: snap.units[2]?.[i] ?? 0 },

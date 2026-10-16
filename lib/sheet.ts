@@ -4,7 +4,7 @@ import { HyperFormula, type RawCellContent } from "hyperformula";
 import { sql } from "@/lib/db";
 import { TEAM_TAB, coerce, parseRange, planWrite, qualify, type Cell } from "@/lib/cells";
 
-export { TEAM_TAB, qualify } from "@/lib/cells";
+export { TEAM_TAB, READ_TAB, OUR_TEAM, qualify } from "@/lib/cells";
 
 // The CFO workbook is an uploaded .xlsx stored in Postgres. ExcelJS keeps the file (formatting
 // and all) for download; HyperFormula recalculates the formulas the way Google Sheets would.

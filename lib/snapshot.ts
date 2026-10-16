@@ -5,7 +5,7 @@ import { readRange } from "@/lib/sheet";
 
 // Everything the first screen needs from the workbook, computed once per workbook version and
 // stored next to it. Cold servers read this one row instead of parsing and recalculating the .xlsx.
-const VERSION = 4; // bump when the snapshot's shape changes, so stored ones are recomputed
+const VERSION = 5; // bump when the snapshot's shape changes, so stored ones are recomputed
 
 async function compute(at: string) {
   // The leaderboard decides which tab is which team (facilitators rename tabs, e.g. "Team 3 NOT IN USE").

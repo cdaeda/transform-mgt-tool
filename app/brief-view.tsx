@@ -98,7 +98,7 @@ export function BriefView({ slug, embedded = false }: { slug: string; embedded?:
                 </div>
               )}
               <footer className="flex justify-between px-8 py-2 text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
-                <span>Flying Dragon · {meta?.label}</span><span>Presenter: {who(sl.speaker)}</span><span>{k + 1}</span>
+                <span>Nexus · {meta?.label}</span><span>Presenter: {who(sl.speaker)}</span><span>{k + 1}</span>
               </footer>
             </section>
           ))}

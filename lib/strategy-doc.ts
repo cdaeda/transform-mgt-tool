@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-// The Dragon Nexus strategy & investment case, as structured content (no markdown, so it renders
+// The Nexus strategy & investment case, as structured content (no markdown, so it renders
 // the same in the dashboard, the Word download and the print view).
 export const StrategyDoc = z.object({
-  title: z.string().describe("e.g. 'Flying Dragon: Build the Vehicles. Own the Intelligence Network.'"),
-  tagline: z.string().describe("One line: what Flying Dragon and Dragon Nexus are"),
+  title: z.string().describe("e.g. 'Nexus: Connecting Intelligence. Powering the Future.'"),
+  tagline: z.string().describe("One line: what Nexus is"),
   summary: z.string().describe("3-4 sentence plain-language summary of the core strategy for the dashboard card"),
   executive_summary: z.array(z.string()).describe("3-5 short paragraphs"),
   roadmap: z.array(z.object({
@@ -51,7 +51,7 @@ export function docHtml(d: StrategyDocT, asOf: Date) {
   li { margin: 2px 0; }
 </style></head><body>
 <div class="cover"><span class="asof">As of ${date}</span><h1>${esc(d.title)}</h1><p class="tag">${esc(d.tagline)}</p>
-<p class="note">Flying Dragon · Team 1 · prepared for the board. Figures from the team workbook; [bracketed] items are placeholders to confirm.</p></div>
+<p class="note">Nexus (GN-Automaker, Relay, Flying Dragon) · prepared for the board. Figures from the team workbook; [bracketed] items are placeholders to confirm.</p></div>
 <h2>Executive summary</h2>${d.executive_summary.map((p) => `<p>${esc(p)}</p>`).join("")}
 <h2>Roadmap: three horizons</h2>
 ${d.roadmap.map((r) => `<div class="stage" style="border-color:${hue[r.horizon]}">

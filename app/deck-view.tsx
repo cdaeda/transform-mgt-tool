@@ -327,7 +327,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                 </div>
               )}
               <footer className="flex justify-between px-8 py-2 text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
-                <span>Flying Dragon · {DECK_LABEL}</span><span>Presenter: {who(sl.speaker)}</span><span>{k + 1}</span>
+                <span>Nexus · {DECK_LABEL}</span><span>Presenter: {who(sl.speaker)}</span><span>{k + 1}</span>
               </footer>
             </section>
           ))}
@@ -386,7 +386,7 @@ function ToolSlideView({ t, k, n }: { t: ToolSlide; k: number; n: number }) {
         )}
       </div>
       <footer className="flex justify-between px-8 py-2 text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
-        <span>Flying Dragon · {DECK_LABEL}</span><span>Appendix</span><span>{k + 1}</span>
+        <span>Nexus · {DECK_LABEL}</span><span>Appendix</span><span>{k + 1}</span>
       </footer>
     </section>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { OUR_TEAM } from "@/lib/cells";
 import { CardActions } from "./card-actions";
 import { useEffect, useState } from "react";
 import type { Card } from "@/lib/db";
@@ -44,9 +45,9 @@ export function RivalFinances({ version }: { version: number }) {
             {rows.map((t, r) => {
               const y = t.years[i];
               return (
-                <tr key={t.team} className={`border-t border-zinc-200 dark:border-zinc-800 ${t.team === 1 ? "bg-amber-50 dark:bg-amber-950/40 font-semibold" : ""}`}>
+                <tr key={t.team} className={`border-t border-zinc-200 dark:border-zinc-800 ${t.team === OUR_TEAM ? "bg-amber-50 dark:bg-amber-950/40 font-semibold" : ""}`}>
                   <td className="py-1.5 pr-2 tabular-nums">{r + 1}</td>
-                  <td className="pr-2 whitespace-nowrap">Team {t.team}{t.company && ` · ${t.company}`}{t.team === 1 && " (us)"}</td>
+                  <td className="pr-2 whitespace-nowrap">Team {t.team}{t.company && ` · ${t.company}`}{t.team === OUR_TEAM && " (us)"}</td>
                   {[capM(y.cap), money(y.revenue), money(y.ebitda), money(y.net), money(y.cash), per(y.eps, 3)].map((v, j) => (
                     <td key={j} className={`pr-2 text-right tabular-nums whitespace-nowrap ${v.startsWith("−") ? "text-red-600" : ""}`}>{v}</td>
                   ))}
@@ -168,8 +169,8 @@ export function InvestorRelationsPanel({ ask, version }: { ask: (t: string) => v
           <h3 className="text-lg">Where we stand vs peers</h3>
           <ol className="space-y-1 text-sm">
             {peers.map((t, r) => (
-              <li key={t.team} className={`flex justify-between ${t.team === 1 ? "font-semibold" : ""}`}>
-                <span>{r + 1}. Team {t.team}{t.company && ` · ${t.company}`}{t.team === 1 && " (us)"}</span>
+              <li key={t.team} className={`flex justify-between ${t.team === OUR_TEAM ? "font-semibold" : ""}`}>
+                <span>{r + 1}. Team {t.team}{t.company && ` · ${t.company}`}{t.team === OUR_TEAM && " (us)"}</span>
                 <span className={`tabular-nums ${t.years[i].cap < 0 ? "text-red-600" : ""}`}>{capM(t.years[i].cap)}</span>
               </li>
             ))}
