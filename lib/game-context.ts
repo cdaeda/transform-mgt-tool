@@ -56,6 +56,14 @@ THE CASE (from the team's handoff; treat unconfirmed items as assumptions)
     credible repayment or restructuring plan, and limits on how much cash moves into future technology.
   * Closing line: "Back Flying Dragon to manufacture the vehicles today, build the intelligence network
     tomorrow, and earn recurring revenue from the services that connect them."
+  * PRIMARY WHAT-IF / ENDGAME (2026-10-16): build the vehicles and Dragon Nexus, then SELL that business
+    (the network effect and the UX our loyal customers love) to an acquirer for $50-60B, repay the debt,
+    return cash to shareholders (special dividend + share buybacks) and launch TERRALINK - "the terrestrial
+    link to space mobility" (space + fintech). We are shedding a skin, not abandoning the company. The
+    investor story: EPS and DPS by year, share price = EPS x P/E, buybacks lift EPS, an aggressive dividend
+    strategy can be a tailwind; goal: drive up the share price for our investors. The team's outlook
+    assumptions live in Capital > Investor case. Confirm with the facilitators that a third-party sale is
+    allowed in the game.
   * Retired name: the earlier thesis was "Dragon Drive" (neutral AI driving platform). Treat older
     notes, cards and strategies that say Dragon Drive as the previous plan; Dragon Nexus replaces it.
 - Team: ${teamLine()} - the CFO also covers investor relations. Frameworks: WIN (Transform,

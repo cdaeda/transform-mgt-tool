@@ -1,5 +1,6 @@
 import { sql, type Card, type FinancingIdea, type Strategy, type Team } from "@/lib/db";
 import { getSnapshot } from "@/lib/snapshot";
+import { outlookBaseFrom } from "@/lib/outlook";
 
 type Status = "on-track" | "at-risk" | "off-track" | "no-target";
 
@@ -100,6 +101,9 @@ export async function GET() {
       teams: snap.teams,
       goal: { year: st.goal_year ?? 3, cap: st.goal_cap ?? 50000 },
       capital: financing.map((f) => ({ id: f.id, name: f.name, status: f.status, year: f.year, scale: f.scale, effect: f.effect, category: f.category })),
+      // This year's starting point and the team's assumptions for the earnings outlook (lib/outlook.ts).
+      outlookBase: outlookBaseFrom(snap, y),
+      outlook: st.outlook ?? {},
       // Workbook baseline for the multi-year simulator (lib/simulate.ts), plus data-derived defaults.
       sim: {
         now: y,

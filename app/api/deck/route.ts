@@ -3,12 +3,19 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { buildContext } from "@/lib/context";
 import { listRounds } from "@/lib/rounds";
-import { sql } from "@/lib/db";
+import { sql, type Strategy } from "@/lib/db";
+import { defaultOutlook, outlookBaseFrom, outlookText } from "@/lib/outlook";
+import { getSnapshot } from "@/lib/snapshot";
 import { Deck, DECK_EVENT as EVENT } from "@/lib/deck";
 
 export const maxDuration = 300;
 
 const client = new Anthropic();
+
+async function outlookPrompt() {
+  const [[st], snap] = await Promise.all([sql<Strategy[]>`select current_year, goal_year, outlook from strategy where id = 1`, getSnapshot()]);
+  return outlookText(outlookBaseFrom(snap, st.current_year), { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) });
+}
 
 const ASK = `Write our deck for the ${EVENT} (management event card): "Prepare a short presentation outlining
 your key achievements over the past twelve months. Present your financial results for the year. Most
@@ -21,13 +28,26 @@ round snapshots) and there is nowhere to go but up. Tell it optimistically and c
 own the low point in one line, then put the weight on what we've already changed, the progress since the
 low, and the momentum of the plan. Positive framing, never spin: every number must be real.
 
-Eight slides, one each: title; progress (the comeback - from the low point through each round snapshot to
+THE FUTURE IS THE HEADLINE: we are SHEDDING A SKIN. Flying Dragon builds the vehicles and Dragon Nexus, then
+sells that business (the network effect and the UX our loyal customers love) to an acquirer for $50-60B,
+repays the debt, returns cash to shareholders (special dividend + buybacks) and launches TERRALINK - the
+terrestrial link to space mobility (space + fintech). Tell a convincing tale for the board and capital
+markets: the earnings outlook (EPS, share price at our P/E, DPS by year), how the dividend strategy and
+buybacks drive the share price, and the return on investment step by step. The title slide headline should
+carry the shed-the-skin idea (Flying Dragon -> Terralink). Use the EARNINGS OUTLOOK figures below exactly;
+say clearly that later years are the team's assumptions, not forecasts.
+
+Ten slides, one each: title; progress (the comeback - from the low point through each round snapshot to
 now, and the momentum it shows); achievements (past 12 months - only things we actually did per the app's
 cards, strategy, financing and tasks; [placeholders] where unknown); results (the year's financials from
 the workbook - revenue, EBITDA, net profit, cash; own the BUST and any errors honestly, keep revenue,
 valuation, capex/opex and debt separate); market_cap (what drives our valuation: business model portfolio,
-analyst ratings, cash - and how we move each); roadmap (H1 -> H2 -> H3); deliver (funding plan: how we pay
-for it, lender covenants, next 90 days); ask (the $50B story and what we ask of investors). Spread the
+analyst ratings, cash - and how we move each); earnings (after results: the earnings outlook top-down, revenue
+-> EBITDA -> net profit -> EPS and DPS by year); roadmap (H1 -> H2 -> H3); deliver (funding plan: how we pay
+for it, lender covenants, next 90 days); acquisition (the sale and the return on investment step by step:
+why a strategic buyer pays $50-60B, what we do with the proceeds, then entry price -> EPS -> share price ->
+dividends -> total return);
+ask (the $50B story and what we ask of investors). Spread the
 speaking across the roles. HARD LIMIT: the presentation is 3 minutes - all speaker notes together
 must be 400-460 words (fast pace ~170 words/min). Never invent figures or quotes.`;
 
@@ -45,6 +65,9 @@ export async function POST(req: Request) {
       output_config: { effort: "high", format: zodOutputFormat(Deck) },
       system: await buildContext(),
       messages: [{ role: "user", content: `${ASK}
+
+EARNINGS OUTLOOK (the team's saved assumptions; Capital > Investor case):
+${await outlookPrompt()}
 
 ROUND SNAPSHOTS (oldest first, market cap $M):
 ${(await listRounds()).map((r) => `- ${r.label} (Year ${r.year}, ${r.created_at.toISOString().slice(0, 10)}): market cap ${r.data.cap}, price ${r.data.price.toFixed(2)}, net ${Math.round(r.data.net)}, rank ${r.data.rank}`).join("\n") || "(none yet - the current numbers are the baseline)"}` }],

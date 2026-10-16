@@ -63,6 +63,7 @@ export type Strategy = {
   goal_year: number;
   goal_cap: number;
   analyst_target: number[];
+  outlook: Record<string, unknown>; // lib/outlook.ts assumptions
 };
 export type Team = {
   team_number: number;

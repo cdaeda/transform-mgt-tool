@@ -9,6 +9,7 @@ import { ActivityPanel } from "./activity";
 import { ProfitBorrow } from "./profit-borrow";
 import { Comps } from "./comps";
 import { YearStrategies } from "./year-strategies";
+import { InvestorCase } from "./outlook";
 import { YearRound } from "./year-round";
 import { ExitScenario, Simulator } from "./simulator";
 import { DeckView } from "./deck-view";
@@ -195,7 +196,7 @@ function AddRowButton({ spec, onDone }: { spec: AddRow; onDone: () => void }) {
 const TABS = ["Dashboard", "Presentation", "Tasks", "Cards", "Capital", "Finance", "Teams", "Workbook", "Activity"] as const;
 // Finance = this year, tactical. Capital = the path to $50B and the investor story, strategic.
 const FINANCE_AREAS = ["What-if", "Simulator", "Borrowing", "Innovation"] as const;
-const CAPITAL_AREAS = ["Plan & strategies", "Lever planner", "Analyst ratings", "Comparables", "Research", "Investor relations", "Strategy"] as const;
+const CAPITAL_AREAS = ["Investor case", "Plan & strategies", "Lever planner", "Analyst ratings", "Comparables", "Research", "Investor relations", "Strategy"] as const;
 
 // The open tab lives in the URL hash (#finances), so links, refresh and the back button work.
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -206,7 +207,7 @@ const onHash = (cb: () => void) => (window.addEventListener("hashchange", cb), (
 // #finance/investor-relations -> tab "Finance", area "Investor relations"
 const tabFromHash = () => TABS.find((t) => window.location.hash.split("/")[0] === `#${slug(t)}`) ?? "Dashboard";
 const areaFromHash = () => FINANCE_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "What-if";
-const capAreaFromHash = () => CAPITAL_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "Plan & strategies";
+const capAreaFromHash = () => CAPITAL_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "Investor case";
 
 export default function Home() {
   const askRef = useRef<(text: string) => void>(() => {});
@@ -229,7 +230,7 @@ export default function Home() {
   // Tell the server which tab each change comes from (the activity log records it).
   useEffect(() => void (document.cookie = `transform_tab=${encodeURIComponent(tab)}; path=/; samesite=lax`), [tab]);
   const area = useSyncExternalStore(onHash, areaFromHash, () => "What-if" as const);
-  const capArea = useSyncExternalStore(onHash, capAreaFromHash, () => "Plan & strategies" as const);
+  const capArea = useSyncExternalStore(onHash, capAreaFromHash, () => "Investor case" as const);
   const hash = useSyncExternalStore(onHash, () => window.location.hash, () => "");
   // Old links from before Strategy and Investor relations moved from Finance to Capital.
   useEffect(() => {
@@ -341,6 +342,7 @@ export default function Home() {
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${capArea === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
+              {capArea === "Investor case" && <InvestorCase version={version} ask={ask} />}
               {capArea === "Plan & strategies" && <CapitalPanel version={version} ask={ask} />}
               {capArea === "Analyst ratings" && <AnalystRatings version={version} ask={ask} />}
               {capArea === "Lever planner" && <PathTo50B version={version} ask={ask} makeTasks={makeTasks} />}

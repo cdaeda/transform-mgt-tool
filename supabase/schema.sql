@@ -274,3 +274,6 @@ create table if not exists comps (
   caveat text not null default ''
 );
 alter table comps enable row level security;
+
+-- The team's earnings-outlook assumptions (lib/outlook.ts), shared by Capital, the deck and the PowerPoint.
+alter table strategy add column if not exists outlook jsonb not null default '{}';

@@ -10,6 +10,7 @@ import { TOOL_SLIDES, type ToolShot, type ToolSlide } from "@/lib/tool-slides";
 import { ComebackChart, useRounds } from "./comeback";
 import { DragonMark } from "./dragon-mark";
 import { useOverview } from "./overview-store";
+import { Ladder, useInvestorCase } from "./outlook";
 
 type Year = { revenue: number; ebitda: number; net: number; cash: number };
 type Overview = {
@@ -54,6 +55,24 @@ function Bars({ items }: { items: { label: string; value: number; color: string 
 
 function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc; rounds: Parameters<typeof ComebackChart>[0]["rounds"] }) {
   const i = o.year - 1;
+  const ic = useInvestorCase(0);
+  if ((kind === "earnings" || kind === "acquisition") && ic) {
+    const { rows, roi } = ic.run(ic.saved);
+    const ps = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
+    if (kind === "earnings")
+      return (
+        <div className="space-y-3">
+          <Bars items={rows.map((r) => ({ label: `Y${r.year} ${r.company === "Flying Dragon" ? "" : r.company}${r.year === ic.base.now ? "" : "*"}`, value: r.net, color: r.company === "Flying Dragon" ? "var(--growth)" : "var(--explore)" }))} />
+          <table className="w-full text-lg tabular-nums"><tbody>
+            <tr><th className="text-left font-normal text-zinc-500">EPS</th>{rows.map((r) => <td key={r.year} className={`text-right ${r.eps < 0 ? "text-red-600" : ""}`}>{ps(r.eps)}</td>)}</tr>
+            <tr><th className="text-left font-normal text-zinc-500">Share price</th>{rows.map((r) => <td key={r.year} className="text-right">{ps(r.price)}</td>)}</tr>
+            <tr><th className="text-left font-normal text-zinc-500">DPS</th>{rows.map((r) => <td key={r.year} className="text-right">{ps(r.dps)}</td>)}</tr>
+          </tbody></table>
+          <p className="text-xs text-zinc-500 text-center">Net profit by year · * team assumptions, not forecasts</p>
+        </div>
+      );
+    return <Ladder r={rows[rows.length - 1]} roi={roi} o={ic.saved} className="grid gap-1.5 grid-cols-2 text-sm" />;
+  }
   if (kind === "progress") return <div className="space-y-2"><DragonMark size={110} className="mx-auto" /><ComebackChart rounds={rounds} height={220} /></div>;
   if (kind === "results")
     return <Bars items={[
@@ -112,6 +131,8 @@ const LINKS: Record<string, Jump[]> = {
   market_cap: [{ label: "Market cap thermometer", hash: "dashboard", sel: '[aria-label="Market cap thermometer"]' }, { label: "Rating goal", hash: "capital/analyst-ratings", sel: '[aria-label="Rating goal"]' }],
   roadmap: [{ label: "Horizon tuner", hash: "dashboard", sel: '[aria-label="Horizon tuner"]' }, { label: "Strategy knob", hash: "finance/what-if", sel: '[aria-label="Strategy knob"]' }],
   deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/simulator", sel: '[aria-label="Simulator"]' }],
+  earnings: [{ label: "Earnings outlook", hash: "capital/investor-case", sel: '[aria-label="Investor case"]' }],
+  acquisition: [{ label: "Investor case", hash: "capital/investor-case", sel: '[aria-label="From revenue to return"]' }, { label: "Exit scenario", hash: "finance/simulator", sel: '[aria-label="Exit scenario"]' }],
   ask: [{ label: "$50B goal path", hash: "dashboard", sel: '[aria-label*="B by Year"]' }, { label: "Borrowing plans", hash: "finance/borrowing", sel: '[aria-label="Borrowing plans"]' }, { label: "Comparable valuations", hash: "capital/comparables", sel: '[aria-label="Comparable valuations"]' }],
 };
 const SHOT_LINKS: Record<string, Jump> = {
@@ -230,7 +251,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                 <div className="certificate flex-1 !rounded-none p-10 flex flex-col justify-end">
                   <p className="relative eyebrow text-amber-300">{DECK_LABEL} · Year {data?.year ?? ""}</p>
                   <DragonMark size={150} className="absolute right-10 top-10 opacity-90" />
-                  <h1 className="relative figure text-6xl sm:text-8xl mt-2">Dragon Nexus</h1>
+                  <h1 className="relative figure text-6xl sm:text-8xl mt-2">Terralink</h1>
                   <p className="relative font-display text-2xl sm:text-3xl text-white/90 mt-2 normal-case">{sl.headline}</p>
                   <p className="relative text-white/70 mt-4">{deck.content.subtitle}</p>
                 </div>
@@ -240,7 +261,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind.replace("_", " ")}</p>
                     <h2 className="text-3xl sm:text-4xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  <div className={`grid gap-8 items-center ${data && ["progress", "results", "market_cap", "roadmap", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ""}`}>
+                  <div className={`grid gap-8 items-center ${data && ["progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ""}`}>
                     <ul className="space-y-3 text-xl">
                       {sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}
                     </ul>

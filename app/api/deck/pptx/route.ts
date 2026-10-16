@@ -7,6 +7,7 @@ import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
 import { listRounds } from "@/lib/rounds";
 import { getSnapshot } from "@/lib/snapshot";
+import { defaultOutlook, outlook, outlookBaseFrom, type Outlook } from "@/lib/outlook";
 import { TOOL_SLIDES, type ToolShot } from "@/lib/tool-slides";
 import type { StrategyDocT } from "@/lib/strategy-doc";
 
@@ -21,7 +22,7 @@ export async function GET() {
   const [deckRow] = await sql<{ content: DeckT; created_at: Date }[]>`select content, created_at from decks where event = ${DECK_EVENT} order by created_at desc limit 1`;
   if (!deckRow) return new Response("No deck yet - write it on the deck page first.", { status: 404 });
   const [[st], [docRow], snap, rounds] = await Promise.all([
-    sql<Strategy[]>`select current_year from strategy where id = 1`,
+    sql<Strategy[]>`select current_year, goal_year, outlook from strategy where id = 1`,
     sql<{ content: StrategyDocT }[]>`select content from strategy_docs order by created_at desc limit 1`,
     getSnapshot(),
     listRounds(),
@@ -31,6 +32,9 @@ export async function GET() {
   const analysts = (snap.analysts ?? []).map((r) => r[i] ?? 0);
   const mc = marketCap({ ...units, analysts, cash: snap.cashUnits?.[i] ?? 0 });
   const deck = deckRow.content;
+  const out: Outlook = { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) };
+  const ol = outlook(outlookBaseFrom(snap, st.current_year), out);
+  const ps = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
 
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
@@ -44,7 +48,7 @@ export async function GET() {
     if (s.kind === "title") {
       slide.background = { color: PLUM };
       slide.addText("TRANSFORM!  ·  " + DECK_EVENT.toUpperCase() + `  ·  YEAR ${st.current_year}`, { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
-      slide.addText("Dragon Nexus", { x: 0.7, y: 2.4, w: 12, h: 1.4, fontFace: FONT, fontSize: 66, color: "FFFFFF", bold: true });
+      slide.addText("Terralink", { x: 0.7, y: 2.4, w: 12, h: 1.4, fontFace: FONT, fontSize: 66, color: "FFFFFF", bold: true });
       slide.addText(s.headline, { x: 0.7, y: 3.9, w: 11.5, h: 1.2, fontFace: FONT, fontSize: 24, color: "FFFFFF" });
       slide.addText(deck.subtitle, { x: 0.7, y: 5.3, w: 11.5, h: 0.8, fontFace: FONT, fontSize: 14, color: "D9CCE8" });
       slide.addText(`Presenter: ${who(s.speaker)}`, { x: 0.7, y: 6.7, w: 8, h: 0.4, fontFace: FONT, fontSize: 11, color: GOLD });
@@ -54,7 +58,7 @@ export async function GET() {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
     slide.addText(s.kind.replace("_", " ").toUpperCase(), { x: 0.6, y: 0.35, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
     slide.addText(s.headline, { x: 0.6, y: 0.7, w: 12.1, h: 1.1, fontFace: FONT, fontSize: 28, color: INK, bold: true, valign: "top" });
-    const visual = ["progress", "results", "market_cap", "roadmap", "ask"].includes(s.kind);
+    const visual = ["progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(s.kind);
     slide.addText(s.bullets.map((b) => ({ text: b, options: { bullet: { code: "25B8" }, breakLine: true } })), {
       x: 0.6, y: 2.0, w: visual ? 5.6 : 12.1, h: 4.6, fontFace: FONT, fontSize: 17, color: INK, valign: "top", paraSpaceAfter: 10,
     });
@@ -85,6 +89,24 @@ export async function GET() {
         { label: "Net profit", v: y.net, color: HUE.H3 },
         { label: "Cash", v: y.cash, color: GOLD },
       ], 2.2);
+    if (s.kind === "earnings") {
+      bars(ol.rows.map((r) => ({ label: `Year ${r.year}${r.year === st.current_year ? "" : "*"}`, v: r.net, color: HUE.H2 })), 2.0);
+      const top = 2.0 + ol.rows.length * 0.95 + 0.1;
+      slide.addText(`EPS   ${ol.rows.map((r) => ps(r.eps)).join("   ·   ")}\nPrice   ${ol.rows.map((r) => ps(r.price)).join("   ·   ")}\nDPS   ${ol.rows.map((r) => ps(r.dps)).join("   ·   ")}`, { x: X, y: top, w: W, h: 0.8, fontFace: FONT, fontSize: 14, color: INK, bold: true, align: "center" });
+      slide.addText("Net profit by year · * team assumptions, not forecasts", { x: X, y: top + 0.8, w: W, h: 0.35, fontFace: FONT, fontSize: 10, color: GREY, align: "center" });
+    }
+    if (s.kind === "acquisition") {
+      const r = ol.rows[ol.rows.length - 1], roi = ol.roi;
+      const m = (n: number) => money(n);
+      const steps = [["Revenue", m(r.revenue)], ["EBITDA", m(r.ebitda)], ["Net profit", m(r.net)], ["EPS", ps(r.eps)], [`Share price (x${out.pe} P/E)`, ps(r.price)],
+        ...(roi ? [["Dividends received", ps(roi.dividends)], ["Return", `${roi.multiple.toFixed(1)}x (${roi.annualPct.toFixed(0)}%/yr)`]] : [])];
+      steps.forEach(([k2, v], j) => {
+        const cx = X + (j % 2) * (W / 2), cy = 2.0 + Math.floor(j / 2) * 1.05, last = roi && j === steps.length - 1;
+        slide.addShape(pptx.ShapeType.roundRect, { x: cx, y: cy, w: W / 2 - 0.15, h: 0.9, fill: { color: last ? GOLD : "F6F2FA" }, line: { color: last ? GOLD : "E4DDEE" }, rectRadius: 0.08 });
+        slide.addText([{ text: `${j + 1} · ${k2.toUpperCase()}\n`, options: { fontSize: 9, color: GREY, bold: true } }, { text: v, options: { fontSize: 20, bold: true, color: v.startsWith("-") ? RED : INK } }],
+          { x: cx + 0.1, y: cy, w: W / 2 - 0.35, h: 0.9, fontFace: FONT, valign: "middle" });
+      });
+    }
     if (s.kind === "market_cap") {
       bars([
         { label: "Cash × 100", v: mc.cashTerm * 1e6, color: GOLD },
