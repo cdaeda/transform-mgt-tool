@@ -93,8 +93,8 @@ function BorrowPlans({ version }: { version: number }) {
                   <p className="eyebrow text-zinc-500">Where it goes</p>
                   <ul className="space-y-1 mt-1">
                     {p.uses.map((u, j) => (
-                      <li key={j} className="flex gap-2">
-                        <span className="chip !text-[10px] shrink-0" style={{ background: HZ[u.horizon] ?? "var(--gold)" }}>{u.horizon}</span>
+                      <li key={j} className="flex items-start gap-2">
+                        <span className="chip !text-[10px] shrink-0 self-start w-16 justify-center text-center mt-0.5" style={{ background: HZ[u.horizon] ?? "var(--gold)" }}>{u.horizon}</span>
                         <span><b className="tabular-nums">${u.amount_m}M</b> {u.what}<span className="block text-xs text-zinc-500">{u.why}</span></span>
                       </li>
                     ))}
