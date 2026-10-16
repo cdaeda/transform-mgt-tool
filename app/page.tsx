@@ -348,7 +348,7 @@ export default function Home() {
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${area === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
-              {area === "What-if" && (<><Simulator version={version} ask={ask} /><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /></>)}
+              {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /><Simulator version={version} ask={ask} /></>)}
               {area === "Strategy" && (<><StrategyCard version={version} /><AmbitionPanel onYear={bump} /></>)}
               {area === "Innovation" && <InnovationPanel ask={ask} version={version} />}
               {area === "Investor relations" && <InvestorRelationsPanel ask={ask} version={version} />}
