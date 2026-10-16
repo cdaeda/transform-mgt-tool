@@ -15,6 +15,8 @@ import { KeyNumbers } from "./key-numbers";
 import { Valuation } from "./valuation";
 import { ExitScenario, Simulator } from "./simulator";
 import { DeckView } from "./deck-view";
+import { BriefView } from "./brief-view";
+import { BRIEFS } from "@/lib/brief";
 import { PresentReturn } from "./present-return";
 import { DashboardPanel } from "./dashboard";
 import { RolePicker, TasksPanel, useMyRole } from "./tasks";
@@ -370,7 +372,15 @@ export default function Home() {
               {area === "Innovation" && <InnovationPanel ask={ask} version={version} />}
             </>)}
             {tab === "Activity" && <ActivityPanel version={version} />}
-            {tab === "Presentation" && <DeckView embedded />}
+            {tab === "Presentation" && (<>
+              <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap -mt-1" aria-label="Decks">
+                {[["deck", "Shareholder Day deck"], ...Object.entries(BRIEFS).map(([k, b]) => [k, b.label])].map(([k, l]) => (
+                  <button key={k} onClick={() => goTo(k === "deck" ? "presentation" : `presentation/${k}`)} aria-current={(hash.split("/")[1] ?? "deck") === k ? "page" : undefined}
+                    className={`rounded-full px-3 py-1 text-sm font-semibold ${(hash.split("/")[1] ?? "deck") === k ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{l}</button>
+                ))}
+              </nav>
+              {BRIEFS[hash.split("/")[1] ?? ""] ? <BriefView slug={hash.split("/")[1]} embedded /> : <DeckView embedded />}
+            </>)}
             {tab === "Teams" && (<><RivalFinances version={version} /><TeamsPanel /></>)}
             {tab === "Workbook" && (<>
               <EditToggle cfo={cfo} on={editMode} set={setEditMode} />
