@@ -1,6 +1,7 @@
 import { sql, type Card, type FinancingIdea, type Strategy, type Team } from "@/lib/db";
 import { getSnapshot } from "@/lib/snapshot";
 import { outlookBaseFrom } from "@/lib/outlook";
+import { closedYearOf } from "@/lib/simulate";
 
 type Status = "on-track" | "at-risk" | "off-track" | "no-target";
 
@@ -105,8 +106,10 @@ export async function GET() {
       outlookBase: outlookBaseFrom(snap, y),
       outlook: st.outlook ?? {},
       // Workbook baseline for the multi-year simulator (lib/simulate.ts), plus data-derived defaults.
+      closedYear: closedYearOf(snap.years, y),
       sim: {
-        now: y,
+        now: y, cashUnits: snap.cashUnits ?? [], completed: snap.years.map((r) => r.completed),
+        rev: snap.years.map((r) => r.revenue + r.oneTime), ebitda: snap.years.map((r) => r.ebitda), eps: snap.years.map((r) => r.eps),
         segRev: [68, 86, 104].map((r) => snap.seg[r] ?? []), segCost: [128, 146, 164].map((r) => snap.seg[r] ?? []),
         costBase: snap.years.map((r) => r.costBase), interest: snap.years.map((r) => r.interest),
         net: snap.years.map((r) => r.net), cash: snap.years.map((r) => r.cash),

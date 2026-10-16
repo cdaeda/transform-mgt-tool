@@ -1,6 +1,6 @@
 // node lib/simulate.check.ts - the simulator reproduces the workbook with no knobs, and each knob moves the right numbers.
 import assert from "node:assert/strict";
-import { emptyKnobs, infusion, simulate, type Base } from "./simulate.ts";
+import { closedYearOf, emptyKnobs, infusion, simulate, type Base } from "./simulate.ts";
 
 const z = () => Array(10).fill(0);
 const b: Base = {
@@ -48,3 +48,7 @@ assert.equal(inf.leftover, 50e6);
 assert.equal(inf.rows[0].with.levers.explore, inf.rows[0].without.levers.explore + 1);
 assert.equal(inf.rows[0].with.shares, 1.1e9);
 console.log("infusion ok");
+assert.equal(closedYearOf([{ completed: true }, { completed: "Yes" }, { completed: "No" }], 3), 2);
+assert.equal(closedYearOf([{ completed: "Yes" }, { completed: "No" }], 2), 1);
+assert.equal(closedYearOf([{ completed: "No" }], 1), 1);
+console.log("closed year ok");

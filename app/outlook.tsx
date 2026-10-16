@@ -225,7 +225,7 @@ export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: O
 
 // Terralink's money, start to finish: launch capital into space and into fintech, what each earns per
 // year, and what the capital returns. The clear tie between the sale and the new businesses.
-export function MoneyMap({ rows, o, strats = [] }: { rows: OutlookRow[]; o: Outlook; strats?: PlanStrat[] }) {
+export function MoneyMap({ rows, o, strats = [], compact = false }: { rows: OutlookRow[]; o: Outlook; strats?: PlanStrat[]; compact?: boolean }) {
   // Initial funding raised for each venture before the sale (committed or pitching strategies' uses).
   const seed = (k: string) => strats.filter((s) => ["locked", "pitching"].includes(s.status)).flatMap((s) => (s.uses ?? []).filter((u) => new RegExp(k, "i").test(u.what)).map((u) => ({ name: s.name, year: s.year, amount: u.amount_m * 1e6 })));
   const sale = rows.find((r) => r.year === o.saleYear);
@@ -238,9 +238,9 @@ export function MoneyMap({ rows, o, strats = [] }: { rows: OutlookRow[]; o: Outl
         <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{k === "space" ? "Space" : "Fintech"}</p>
         {seed(k).map((x) => <p key={x.name} className="text-sm">{money(x.amount)} initial funding{x.year ? ` (Year ${x.year})` : ""} <span className="text-xs text-zinc-500">· {x.name}</span></p>)}
         <p className="text-sm"><b className="font-display text-2xl tabular-nums">{money(capital)}</b> launch capital from the sale (Year {o.saleYear})</p>
-        <p className="text-sm tabular-nums">{after.length ? after.map((r) => `Y${r.year} ${money(r[k])}`).join(" · ") : "no years after the sale in view"} revenue</p>
-        <p className="text-xs text-zinc-500">To Year {rows[rows.length - 1].year}: revenue {money(rev)} − cost {money(cost)} = {money(rev - cost)}{capital > 0 ? ` · ${(((rev - cost) / capital) * 100).toFixed(1)}% of the capital back so far` : ""}</p>
-        {rev === 0 && <p className="text-xs text-amber-700">Set {k} revenue and cost by year under Assumptions to project its return.</p>}
+        {(!compact || rev > 0) && <p className="text-sm tabular-nums">{after.length ? after.map((r) => `Y${r.year} ${money(r[k])}`).join(" · ") : "no years after the sale in view"} revenue</p>}
+        {(!compact || rev > 0) && <p className="text-xs text-zinc-500">To Year {rows[rows.length - 1].year}: revenue {money(rev)} − cost {money(cost)} = {money(rev - cost)}{capital > 0 ? ` · ${(((rev - cost) / capital) * 100).toFixed(1)}% of the capital back so far` : ""}</p>}
+        {rev === 0 && !compact && <p className="text-xs text-amber-700">Set {k} revenue and cost by year under Assumptions to project its return.</p>}
       </div>
     );
   };

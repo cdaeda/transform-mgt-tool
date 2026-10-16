@@ -42,7 +42,9 @@ terrestrial link to space mobility (space + fintech). Tell a convincing tale for
 markets: the earnings outlook (EPS, share price at our P/E, DPS by year), how the dividend strategy and
 buybacks drive the share price, and the return on investment step by step. The title slide headline should
 carry "The dragon is shedding" (Flying Dragon -> Terralink); use that exact phrase, not "shedding a skin". Use the EARNINGS OUTLOOK figures below exactly;
-say clearly that later years are the team's assumptions, not forecasts. The acquisition message: we keep the
+say clearly that later years are the team's assumptions, not forecasts. A $0 or 0.0 in the outlook for a
+future year almost always means "not set yet": never quote it as a number; leave it out or say it is still to be
+set. Report the last CLOSED year's results (we are presenting at the start of the new year). The acquisition message: we keep the
 core human brains and go AI-native; the legacy infrastructure goes with the buyer, and Terralink is rebuilt from
 scratch on a modern, AI-first model.
 

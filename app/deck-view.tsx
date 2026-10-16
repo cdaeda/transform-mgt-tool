@@ -18,7 +18,8 @@ type Overview = {
   year: number;
   certificate: { caps: number[]; price: number[]; rank: string };
   kpis: { revenue: number; ebitda: number; net: number; cash: number };
-  sim?: { net: number[] };
+  closedYear?: number;
+  sim?: { net: number[]; cash: number[]; rev: number[]; ebitda: number[]; eps: number[]; units: number[][]; analysts: number[][]; cashUnits: number[] };
   health?: { workbookUpdated: string | null };
   plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number };
   teams: { team: number; years: Year[] }[];
@@ -57,17 +58,19 @@ function Bars({ items }: { items: { label: string; value: number; color: string 
 }
 
 function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc; rounds: Parameters<typeof ComebackChart>[0]["rounds"] }) {
-  const i = o.year - 1;
+  // A year-end presentation reports the last CLOSED year (the current one has only just opened).
+  const py = o.closedYear ?? o.year, i = py - 1, sim = o.sim;
+  const at = (a: number[] | undefined, fb: number) => (a && a[i] !== undefined ? a[i] : fb);
   const ic = useInvestorCase(0);
   if (kind === "turnaround") {
     // Year 1 -> Year 2 -> entering Year 3: the workbook's market cap and net profit, the snapshots in between.
-    const years = Array.from({ length: Math.max(3, o.year + 1) }, (_, j) => j + 1).slice(0, Math.max(3, o.year + 1));
+    const years = Array.from({ length: py + 1 }, (_, j) => j + 1);
     return (
       <ol className="grid gap-3 relative" style={{ gridTemplateColumns: `repeat(${years.length}, minmax(0, 1fr))` }}>
         <span className="absolute top-5 left-[12%] right-[12%] h-1 rounded bg-gradient-to-r from-red-500 via-[var(--gold)] to-green-600" aria-hidden />
         {years.map((y) => {
-          const cap = o.certificate.caps[y - 1], net = o.sim?.net?.[y - 1], ahead = y > o.year;
-          const snaps = rounds.filter((r) => r.year === y);
+          const cap = o.certificate.caps[y - 1], net = o.sim?.net?.[y - 1], ahead = y > py;
+          const snaps = rounds.filter((r) => r.year === y && !/^After sync/i.test(r.label));
           return (
             <li key={y} className="relative text-center space-y-1">
               <span className={`mx-auto grid place-items-center w-11 h-11 rounded-full font-display text-white shadow ${ahead ? "bg-indigo-700" : cap !== undefined && cap < 0 ? "bg-red-600" : "bg-green-700"}`}>Y{y}</span>
@@ -86,32 +89,37 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
   if (kind === "terralink" && ic) return <TerralinkVisual />;
   if (kind === "why_price" && ic) return <WhyPrice rows={ic.run(ic.saved).rows} o={ic.saved} />;
   if ((kind === "earnings" || kind === "acquisition") && ic) {
-    const { rows, roi } = ic.run(ic.saved);
-    const ps = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
+    const { rows: all, roi } = ic.run(ic.saved);
+    const ps = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n) > 0 && Math.abs(n) < 0.01 ? Math.abs(n).toFixed(3) : Math.abs(n).toFixed(2)}`;
+    const hist = Array.from({ length: Math.max(0, ic.base.now - 1) }, (_, j) => ({ year: j + 1, company: "Flying Dragon", net: sim?.net[j] ?? 0, eps: sim?.eps[j] ?? 0, price: 0, dps: 0, revenue: sim?.rev[j] ?? 0, hist: true }));
+    const rows = [...hist, ...all.filter((r) => r.company === "Flying Dragon" || r.revenue !== 0).map((r) => ({ ...r, hist: false }))];
+    const hidden = all.length - all.filter((r) => r.company === "Flying Dragon" || r.revenue !== 0).length;
     if (kind === "earnings")
       return (
         <div className="space-y-3">
-          <Bars items={rows.map((r) => ({ label: `Y${r.year} ${r.company === "Flying Dragon" ? "" : r.company}${r.year === ic.base.now ? "" : "*"}`, value: r.net, color: r.company === "Flying Dragon" ? "var(--growth)" : "var(--explore)" }))} />
+          <Bars items={rows.map((r) => ({ label: `Y${r.year} ${r.company === "Flying Dragon" ? "" : r.company}${r.hist ? "" : "*"}`, value: r.net, color: r.hist ? "var(--core)" : r.company === "Flying Dragon" ? "var(--growth)" : "var(--explore)" }))} />
           <table className="w-full text-lg tabular-nums"><tbody>
             <tr><th className="text-left font-normal text-zinc-500">EPS</th>{rows.map((r) => <td key={r.year} className={`text-right ${r.eps < 0 ? "text-red-600" : ""}`}>{ps(r.eps)}</td>)}</tr>
-            <tr><th className="text-left font-normal text-zinc-500">Share price</th>{rows.map((r) => <td key={r.year} className="text-right">{ps(r.price)}</td>)}</tr>
+            <tr><th className="text-left font-normal text-zinc-500">Share price</th>{rows.map((r) => <td key={r.year} className="text-right">{r.hist ? "—" : ps(r.price)}</td>)}</tr>
             <tr><th className="text-left font-normal text-zinc-500">DPS</th>{rows.map((r) => <td key={r.year} className="text-right">{ps(r.dps)}</td>)}</tr>
           </tbody></table>
-          <p className="text-xs text-zinc-500 text-center">Net profit by year · * team assumptions, not forecasts</p>
+          <p className="text-xs text-zinc-500 text-center">Net profit by year: actuals, then * team assumptions (not forecasts){hidden ? ` · ${hidden} Terralink year${hidden === 1 ? "" : "s"} shown once its revenue is set` : ""}</p>
         </div>
       );
-    return <Ladder r={rows[rows.length - 1]} roi={roi} o={ic.saved} className="grid gap-1.5 grid-cols-2 text-sm" />;
+    return <Ladder r={all.find((r) => r.year === ic.saved.saleYear) ?? all[all.length - 1]} roi={roi} o={ic.saved} className="grid gap-1.5 grid-cols-2 text-sm" />;
   }
   if (kind === "progress") return <div className="space-y-2"><DragonMark size={110} className="mx-auto" /><ComebackChart rounds={rounds} height={220} /></div>;
   if (kind === "results")
     return <Bars items={[
-      { label: "Revenue", value: o.kpis.revenue, color: "var(--core)" },
-      { label: "EBITDA", value: o.kpis.ebitda, color: "var(--growth)" },
-      { label: "Net profit", value: o.kpis.net, color: "var(--explore)" },
-      { label: "Cash", value: o.kpis.cash, color: "var(--gold)" },
+      { label: `Revenue Y${py}`, value: at(sim?.rev, o.kpis.revenue), color: "var(--core)" },
+      { label: "EBITDA", value: at(sim?.ebitda, o.kpis.ebitda), color: "var(--growth)" },
+      { label: "Net profit", value: at(sim?.net, o.kpis.net), color: "var(--explore)" },
+      { label: "Cash", value: at(sim?.cash, o.kpis.cash), color: "var(--gold)" },
     ]} />;
   if (kind === "market_cap") {
-    const mc = marketCap({ ...o.plan.units, analysts: o.plan.analysts, cash: o.plan.cashForCap });
+    const units = sim ? { core: sim.units[0]?.[i] ?? 0, growth: sim.units[1]?.[i] ?? 0, explore: sim.units[2]?.[i] ?? 0 } : o.plan.units;
+    const analysts = sim ? sim.analysts.map((r) => r[i] ?? 0) : o.plan.analysts;
+    const mc = marketCap({ ...units, analysts, cash: sim ? sim.cashUnits[i] ?? 0 : o.plan.cashForCap });
     return (
       <div className="space-y-3">
         <Bars items={[
@@ -120,7 +128,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
           { label: "Cash × 100", value: mc.cashTerm * 1e6, color: "var(--gold)" },
           { label: "Market cap", value: mc.total * 1e6, color: "var(--core)" },
         ]} />
-        <p className="text-base text-zinc-500 text-center">{o.plan.units.core} Core · {o.plan.units.growth} Growth · {o.plan.units.explore} Explore · analysts: {ANALYST_NAMES.map((n, j) => (o.plan.analysts[j] ? `${o.plan.analysts[j]} ${n}` : "")).filter(Boolean).join(", ") || "none"}</p>
+        <p className="text-base text-zinc-500 text-center">Year {py}: {units.core} Core · {units.growth} Growth · {units.explore} Explore · analysts: {ANALYST_NAMES.map((n, j) => (analysts[j] ? `${analysts[j]} ${n}` : "")).filter(Boolean).join(", ") || "none"}</p>
       </div>
     );
   }
@@ -139,7 +147,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
       </ol>
     );
   if (kind === "ask") {
-    const now = o.certificate.caps[i] ?? 0, pct = Math.max(0, Math.min(100, (now / 50000) * 100));
+    const now = o.certificate.caps[i] ?? 0; const pct = Math.max(0, Math.min(100, (now / 50000) * 100));
     return (
       <div className="space-y-3">
         <div className="flex justify-between text-lg"><span>Today {capM(now)}</span><span className="text-amber-600 font-semibold">$50B</span></div>
@@ -226,7 +234,8 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
   }, []);
   // The deck's own slides, plus the built-in "Why $60B" slide right after the acquisition slide.
   const icDeck = useInvestorCase(0);
-  const why = icDeck && icDeck.saved.saleYear ? whyPriceSlide(icDeck.run(icDeck.saved).rows, icDeck.saved) : null;
+  const why0 = icDeck && icDeck.saved.saleYear && icDeck.saved.bridge ? whyPriceSlide(icDeck.run(icDeck.saved).rows, icDeck.saved) : null;
+  const why = why0 && why0.bridge.total > 0 ? why0 : null; // shown once the team has built the bridge
   const deckCards = useCards();
   const inf = icDeck?.sim ? infusionSlide(icDeck.sim, icDeck.saved, deckCards) : null;
   const slides = (deck?.content.slides ?? []).flatMap((sl) =>
@@ -296,7 +305,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
               className={`${k === n ? "flex" : "hidden"} print:flex print:break-after-page w-full max-w-6xl aspect-video flex-col rounded-xl overflow-hidden shadow-2xl bg-surface text-foreground print:shadow-none print:rounded-none`}>
               {sl.kind === "title" ? (
                 <div className="certificate flex-1 !rounded-none p-10 flex flex-col justify-end">
-                  <p className="relative eyebrow text-amber-300">{DECK_LABEL} · Year {data?.year ?? ""}</p>
+                  <p className="relative eyebrow text-amber-300">{DECK_LABEL} · Year {data?.closedYear ?? data?.year ?? ""}</p>
                   <DragonMark size={150} className="absolute right-10 top-10 opacity-90" />
                   <h1 className="relative figure text-6xl sm:text-8xl mt-2">Terralink</h1>
                   <p className="relative font-display text-2xl sm:text-3xl text-white/90 mt-2 normal-case">{sl.headline}</p>
@@ -399,7 +408,7 @@ function TerralinkVisual() {
   const pools = comps.filter((c) => c.valuation_usd_b !== null).slice(0, 8);
   return (
     <div className="space-y-3">
-      {ic.saved.saleYear > 0 && <MoneyMap rows={rows} o={ic.saved} strats={ic.capital} />}
+      {ic.saved.saleYear > 0 && <MoneyMap rows={rows} o={ic.saved} strats={ic.capital} compact />}
       {pools.length > 0 && (
         <div>
           <p className="eyebrow text-zinc-500">The value pools · comparables</p>

@@ -8,7 +8,7 @@ import { ROLES } from "@/lib/roles";
 import { listRounds } from "@/lib/rounds";
 import { getSnapshot } from "@/lib/snapshot";
 import { defaultOutlook, infusionSlide, outlook, outlookBaseFrom, whyPriceSlide, type Outlook } from "@/lib/outlook";
-import { simBaseFrom, type InfusionCard } from "@/lib/simulate";
+import { closedYearOf, simBaseFrom, type InfusionCard } from "@/lib/simulate";
 import { TOOL_SLIDES, type ToolShot } from "@/lib/tool-slides";
 import type { StrategyDocT } from "@/lib/strategy-doc";
 
@@ -28,7 +28,8 @@ export async function GET() {
     getSnapshot(),
     listRounds(),
   ]);
-  const i = st.current_year - 1, y = snap.years[i];
+  // A year-end deck reports the last CLOSED year (the current one has only just opened).
+  const py = closedYearOf(snap.years, st.current_year), i = py - 1, y = snap.years[i];
   const units = { core: snap.units[0]?.[i] ?? 0, growth: snap.units[1]?.[i] ?? 0, explore: snap.units[2]?.[i] ?? 0 };
   const analysts = (snap.analysts ?? []).map((r) => r[i] ?? 0);
   const mc = marketCap({ ...units, analysts, cash: snap.cashUnits?.[i] ?? 0 });
@@ -43,7 +44,8 @@ export async function GET() {
   pptx.company = "Flying Dragon";
 
   // The built-in "Why $60B" slide goes right after the acquisition slide.
-  const why = out.saleYear ? whyPriceSlide(ol.rows, out) : null;
+  const why0 = out.saleYear && out.bridge ? whyPriceSlide(ol.rows, out) : null;
+  const why = why0 && why0.bridge.total > 0 ? why0 : null; // shown once the team has built the bridge
   const cards = await sql<InfusionCard[]>`select id, title, type, capex, start_year, revenue, cost from cards`;
   const inf = infusionSlide(simBaseFrom(snap, st.current_year), out, cards.map((c) => ({ ...c, capex: Number(c.capex) })));
   const all = deck.slides.flatMap((s) =>
@@ -56,7 +58,7 @@ export async function GET() {
     slide.addNotes(`${who(s.speaker)} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}\n\n${s.notes}`);
     if (s.kind === "title") {
       slide.background = { color: PLUM };
-      slide.addText("TRANSFORM!  ·  " + DECK_EVENT.toUpperCase() + `  ·  YEAR ${st.current_year}`, { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
+      slide.addText("TRANSFORM!  ·  " + DECK_EVENT.toUpperCase() + `  ·  YEAR ${py}`, { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
       slide.addText("Terralink", { x: 0.7, y: 2.4, w: 12, h: 1.4, fontFace: FONT, fontSize: 66, color: "FFFFFF", bold: true });
       slide.addText(s.headline, { x: 0.7, y: 3.9, w: 11.5, h: 1.2, fontFace: FONT, fontSize: 24, color: "FFFFFF" });
       slide.addText(deck.subtitle, { x: 0.7, y: 5.3, w: 11.5, h: 0.8, fontFace: FONT, fontSize: 14, color: "D9CCE8" });
@@ -110,15 +112,15 @@ export async function GET() {
         { x: X, y: 4.1, w: W, h: 2.7, fontFace: FONT, valign: "top" });
     }
     if (s.kind === "turnaround") {
-      const yrs = Array.from({ length: Math.max(3, st.current_year + 1) }, (_, j) => j + 1);
+      const yrs = Array.from({ length: py + 1 }, (_, j) => j + 1);
       const cw = W / yrs.length;
       slide.addShape(pptx.ShapeType.line, { x: X + cw / 2, y: 2.45, w: W - cw, h: 0, line: { color: GOLD, width: 4 } });
       yrs.forEach((y, j) => {
-        const yr = snap.years[y - 1], ahead = y > st.current_year, cx = X + j * cw;
+        const yr = snap.years[y - 1], ahead = y > py, cx = X + j * cw;
         const col = ahead ? "4338CA" : yr && yr.cap < 0 ? RED : "15803D";
         slide.addShape(pptx.ShapeType.ellipse, { x: cx + cw / 2 - 0.35, y: 2.1, w: 0.7, h: 0.7, fill: { color: col }, line: { color: col } });
         slide.addText(`Y${y}`, { x: cx + cw / 2 - 0.35, y: 2.1, w: 0.7, h: 0.7, fontFace: FONT, fontSize: 14, bold: true, color: "FFFFFF", align: "center", valign: "middle" });
-        const snaps = rounds.filter((r) => r.year === y).map((r) => r.label).join(" · ");
+        const snaps = rounds.filter((r) => r.year === y && !/^After sync/i.test(r.label)).map((r) => r.label).join(" · ");
         slide.addText([
           { text: `${y === 1 ? "THE LOW POINT" : ahead ? "ENTERING NOW" : "THE RECOVERY"}\n`, options: { fontSize: 9, bold: true, color: GREY } },
           { text: ahead ? "The dragon sheds\n" : `${money((yr?.cap ?? 0) * 1e6)}\n`, options: { fontSize: 18, bold: true, color: col } },
@@ -143,13 +145,18 @@ export async function GET() {
       slide.addText(`$${(target / 1e9).toFixed(0)}B`, { x: X + (target / max) * W - 0.5, y: 1.65, w: 1, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: INK, align: "center" });
     }
     if (s.kind === "earnings") {
-      bars(ol.rows.map((r) => ({ label: `Year ${r.year}${r.year === st.current_year ? "" : "*"}`, v: r.net, color: HUE.H2 })), 2.0);
-      const top = 2.0 + ol.rows.length * 0.95 + 0.1;
-      slide.addText(`EPS   ${ol.rows.map((r) => ps(r.eps)).join("   ·   ")}\nPrice   ${ol.rows.map((r) => ps(r.price)).join("   ·   ")}\nDPS   ${ol.rows.map((r) => ps(r.dps)).join("   ·   ")}`, { x: X, y: top, w: W, h: 0.8, fontFace: FONT, fontSize: 14, color: INK, bold: true, align: "center" });
-      slide.addText("Net profit by year · * team assumptions, not forecasts", { x: X, y: top + 0.8, w: W, h: 0.35, fontFace: FONT, fontSize: 10, color: GREY, align: "center" });
+      // Actuals for the closed years, then the outlook; Terralink years appear once their revenue is set.
+      const hist = snap.years.slice(0, Math.max(0, st.current_year - 1)).map((h, j) => ({ year: j + 1, label: `Year ${j + 1}`, net: h.net, eps: h.eps, price: null as number | null, dps: 0 }));
+      const fwd = ol.rows.filter((r) => r.company === "Flying Dragon" || r.revenue !== 0).map((r) => ({ year: r.year, label: `Year ${r.year}*`, net: r.net, eps: r.eps, price: r.price as number | null, dps: r.dps }));
+      const er = [...hist, ...fwd].slice(-5);
+      bars(er.map((r) => ({ label: r.label, v: r.net, color: r.price === null ? HUE.H1 : HUE.H2 })), 2.0);
+      const top = 2.0 + er.length * 0.95 + 0.1;
+      const eps = (n: number) => (Math.abs(n) > 0 && Math.abs(n) < 0.01 ? `$${n.toFixed(3)}` : ps(n));
+      slide.addText(`EPS   ${er.map((r) => eps(r.eps)).join("   ·   ")}\nPrice   ${er.map((r) => (r.price === null ? "-" : ps(r.price))).join("   ·   ")}\nDPS   ${er.map((r) => ps(r.dps)).join("   ·   ")}`, { x: X, y: top, w: W, h: 0.8, fontFace: FONT, fontSize: 14, color: INK, bold: true, align: "center" });
+      slide.addText("Net profit by year: actuals, then * team assumptions (not forecasts)", { x: X, y: top + 0.8, w: W, h: 0.35, fontFace: FONT, fontSize: 10, color: GREY, align: "center" });
     }
     if (s.kind === "acquisition") {
-      const r = ol.rows[ol.rows.length - 1], roi = ol.roi;
+      const r = ol.rows.find((x) => x.year === out.saleYear) ?? ol.rows[ol.rows.length - 1], roi = ol.roi;
       const m = (n: number) => money(n);
       const steps = [["Revenue", m(r.revenue)], ["EBITDA", m(r.ebitda)], ["Net profit", m(r.net)], ["EPS", ps(r.eps)], [`Share price (x${out.pe} P/E)`, ps(r.price)],
         ...(roi ? [["Dividends received", ps(roi.dividends)], ["Return", `${roi.multiple.toFixed(1)}x (${roi.annualPct.toFixed(0)}%/yr)`]] : [])];

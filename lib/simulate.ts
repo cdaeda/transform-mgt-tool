@@ -226,3 +226,10 @@ export function infusion(b: Base, inf: Infusion, cards: InfusionCard[]) {
     rows: withIt.map((r, i) => ({ year: r.year, with: r, without: without[i], mcDelta: r.mc.total - without[i].mc.total, epsWith: r.net / r.shares, epsWithout: without[i].net / without[i].shares })),
   };
 }
+
+// The last year the workbook marks completed (column B = "Yes"): what a year-end presentation reports.
+export function closedYearOf(years: { completed: string | boolean }[], current: number) {
+  let closed = 0;
+  years.forEach((y, i) => { if (i + 1 < current && String(y.completed).toLowerCase() in { yes: 1, true: 1 }) closed = i + 1; });
+  return closed || Math.max(1, current - 1);
+}
