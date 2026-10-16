@@ -108,6 +108,7 @@ export async function GET() {
         revenue: now.revenue + now.oneTime, expenses: now.bmCost + now.costBase + now.interest,
         bmProfit10y: [187, 205, 223].reduce((s, r) => s + (snap.seg[r] ?? []).reduce((a, b) => a + b, 0), 0),
         revenue10y: [68, 86, 104].reduce((s, r) => s + (snap.seg[r] ?? []).reduce((a, b) => a + b, 0), 0),
+        net: now.net, debt: snap.debt ?? 0,
         years: snap.years.map((r) => ({ year: r.year, revenue: r.revenue + r.oneTime, expenses: r.bmCost + r.costBase + r.interest })),
       },
     });

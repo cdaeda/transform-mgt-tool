@@ -6,6 +6,7 @@ const freeRowIndex = (rows: Cell[][]) => { const r = freeRow(0, rows); return r 
 import { CaptureModal } from "./capture";
 import { Copilot, type ActTask, type Pending, type Seed } from "./copilot";
 import { ActivityPanel } from "./activity";
+import { ProfitBorrow } from "./profit-borrow";
 import { DashboardPanel } from "./dashboard";
 import { RolePicker, TasksPanel, useMyRole } from "./tasks";
 import { InnovationPanel, InvestorRelationsPanel, RivalFinances } from "./finance-areas";
@@ -305,6 +306,7 @@ export default function Home() {
           <div className="tab-panel space-y-4 !mt-0">
             {tab === "Dashboard" && <DashboardPanel version={version} onChanged={bump} onTune={() => setArea("What-if")} onPlan={() => setCapArea("Plan & strategies")} go={go} />}
             {tab === "Capital" && (<>
+              <ProfitBorrow version={version} />
               <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap -mt-1" aria-label="Capital areas">
                 {CAPITAL_AREAS.map((a) => (
                   <button key={a} onClick={() => setCapArea(a)} aria-current={capArea === a ? "page" : undefined}
@@ -319,6 +321,7 @@ export default function Home() {
             {tab === "Tasks" && <TasksPanel version={version} onAct={(t) => (setChatOpen(true), actRef.current(t))} />}
             {tab === "Cards" && <CardsPanel ask={ask} onBooked={bump} cfo={cfo} />}
             {tab === "Finance" && (<>
+              <ProfitBorrow version={version} />
               <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap -mt-1" aria-label="Finance areas">
                 {FINANCE_AREAS.map((a) => (
                   <button key={a} onClick={() => setArea(a)} aria-current={area === a ? "page" : undefined}

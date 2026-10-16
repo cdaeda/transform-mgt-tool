@@ -6,6 +6,7 @@ import { HorizonKnob } from "./knob";
 import { MarketCapThermometer } from "./thermometer";
 import { GoalPath } from "./goal";
 import { NextMove, type Go } from "./next-move";
+import { ProfitBorrow } from "./profit-borrow";
 import type { Strat } from "@/lib/capital";
 
 type Status = "on-track" | "at-risk" | "off-track" | "no-target";
@@ -149,6 +150,7 @@ export function DashboardPanel({ version, onChanged, onTune, onPlan, go }: { ver
   return (
     <div className="space-y-5">
       <NextMove go={go} version={version} />
+      <ProfitBorrow version={version} />
       {d.plan && d.goal && (
         <GoalPath today={{ ...d.plan.units, analysts: d.plan.analysts, cash: d.plan.cashForCap, shares: d.plan.shares || 1e9, year: d.year }}
           strats={d.capital ?? []} goalYear={d.goal.year} goalCap={d.goal.cap} onOpen={onPlan} />
