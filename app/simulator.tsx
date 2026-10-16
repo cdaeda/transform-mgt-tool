@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Strat } from "@/lib/capital";
 import { ANALYST_NAMES } from "@/lib/marketcap";
-import { emptyKnobs, explain, SEGS, simulate, type Base, type Knobs, type Seg, type SimCard, type SimYear } from "@/lib/simulate";
+import { emptyKnobs, explain, SEGS, simulate, zeros, type Base, type Knobs, type Seg, type SimCard, type SimYear } from "@/lib/simulate";
+import { CardActions } from "./card-actions";
 import { useOverview } from "./overview-store";
 
 export type SimData = Base & { avgCapex: Record<Seg, number> };
@@ -33,6 +34,19 @@ function Num({ value, set, step = 1, w = "w-16", label }: { value: number; set: 
     className={`${w} rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1 py-0.5 text-right tabular-nums text-sm`} />;
 }
 
+// "Card starts: Space BM 3 (Year 2)" x5 -> one "Card starts: Space BM ×5" with the effects summed.
+const group = (events: SimYear["events"]) => {
+  const out: SimYear["events"] = [];
+  for (const e of events) {
+    const key = e.label.replace(/ \d+ \(Year \d+\)$/, "");
+    const hit = key !== e.label ? out.find((x) => x.label.startsWith(`${key} ×`) || x.label === key) : undefined;
+    if (!hit) { out.push({ ...e, label: key === e.label ? e.label : `${key} ×1` }); continue; }
+    hit.label = `${key} ×${Number(hit.label.split("×")[1] ?? 1) + 1}`;
+    hit.mc += e.mc; hit.cash += e.cash;
+  }
+  return out;
+};
+
 // The result view, shared by the simulator and the card impact timelines.
 export function SimTimeline({ rows, compact = false }: { rows: SimYear[]; compact?: boolean }) {
   const max = Math.max(1, ...rows.flatMap((r) => [Math.abs(r.mc.total), Math.abs(r.baseMc.total)]));
@@ -53,7 +67,7 @@ export function SimTimeline({ rows, compact = false }: { rows: SimYear[]; compac
             </p>
             {!compact && <p className="text-xs text-zinc-500 tabular-nums">${r.price.toFixed(2)}/sh · net {money(r.net)} · cash {money(r.cash)} · debt {money(r.debt)} / can borrow {money(r.borrowAbility)}</p>}
             <ul className="space-y-1">
-              {r.events.map((e, j) => (
+              {group(r.events).map((e, j) => (
                 <li key={j} className="text-xs rounded border border-zinc-200 dark:border-zinc-800 px-1.5 py-1">
                   {e.label}
                   {(e.mc !== 0 || e.cash !== 0) && <span className="block text-zinc-500 tabular-nums">{e.mc ? `market cap ${capM(e.mc, true)}` : ""}{e.mc && e.cash ? " · " : ""}{e.cash ? `cash ${money(e.cash, true)}` : ""}</span>}
@@ -205,10 +219,13 @@ export function Simulator({ version, ask }: { version: number; ask: (t: string) 
         <fieldset className="space-y-1 text-sm">
           <legend className="font-display uppercase tracking-wide">Cards we haven&rsquo;t booked yet</legend>
           {bmCards.length ? bmCards.map((c) => (
-            <label key={c.id} className="flex items-center gap-2">
-              <input type="checkbox" checked={picked.includes(c.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, c.id] : picked.filter((x) => x !== c.id))} />
-              <span>{c.title} <span className="text-xs text-zinc-500">· {c.type} · from Year {c.start_year} · {c.status}</span></span>
-            </label>
+            <div key={c.id} className="space-y-0.5">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={picked.includes(c.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, c.id] : picked.filter((x) => x !== c.id))} />
+                <span>{c.title} <span className="text-xs text-zinc-500">· {c.type} · from Year {c.start_year}</span></span>
+              </label>
+              <div className="pl-6"><CardActions card={c} ask={ask} /></div>
+            </div>
           )) : <p className="text-zinc-500">{cards ? "No unbooked business-model cards." : "Loading cards…"}</p>}
         </fieldset>
         <fieldset className="space-y-1 text-sm">
@@ -231,6 +248,114 @@ export function Simulator({ version, ask }: { version: number; ask: (t: string) 
         <div className="space-y-2" aria-live="polite">
           <h3 className="text-lg">Result · gold = simulated, grey = workbook</h3>
           <SimTimeline rows={run.rows} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+// The primary what-if: sell the car + Dragon Nexus business to an acquirer for $50-60B, pay off the
+// debt, then go big in space and fintech (new Explore BMs). Dragon Nexus stays the stated strategy.
+export function ExitScenario({ version, ask }: { version: number; ask: (t: string) => void }) {
+  const o = useOverview<O>(version);
+  const [cfg, setCfg] = useState<{ year: number; toYear: number; priceB: number; feesPct: number; repayM: number; keep: number; sell: Record<Seg, boolean>; space: number[]; fintech: number[]; econ: { revenue: number; cost: number; capex: number }; sellToBuy: number } | null>(null);
+  const [run, setRun] = useState<SimYear[] | null>(null);
+  const [msg, setMsg] = useState("");
+  const s = o?.data?.sim;
+  if (!s || !o) return <div className="game-card h-40 animate-pulse" aria-busy="true" />;
+  const goal = o.data.goal;
+  const c = cfg ?? {
+    year: Math.min(10, Math.max(s.now + 1, Math.min(goal.year, s.now + 1))), toYear: Math.max(goal.year, s.now + 2), priceB: 55, feesPct: 0,
+    repayM: Math.round(s.debt / 1e6) + 900, keep: 100, sell: { core: true, growth: true, explore: false },
+    space: zeros(), fintech: zeros(), econ: defaults(s, goal.year).profile.explore, sellToBuy: 0,
+  };
+  const set = (p: Partial<typeof c>) => setCfg({ ...c, ...p });
+  const yrs = Array.from({ length: c.toYear - c.year + 1 }, (_, j) => c.year + j);
+  const knobs = (): Knobs => {
+    const k = emptyKnobs(c.toYear);
+    k.exit = { year: c.year, priceB: c.priceB, feesPct: c.feesPct, repayM: c.repayM, costBaseKeptPct: c.keep, sell: c.sell };
+    const bm = (label: string, n: number[]) => n.flatMap((cnt, i) => Array.from({ length: cnt }, (_, x): SimCard => ({ label: `${label} BM ${x + 1} (Year ${i + 1})`, type: "explore", startYear: i + 1, revenue: Array.from({ length: 10 }, (_, y) => (y + 1 >= i + 1 ? c.econ.revenue * 1e6 : 0)), cost: Array.from({ length: 10 }, (_, y) => (y + 1 >= i + 1 ? c.econ.cost * 1e6 : 0)), capex: c.econ.capex * 1e6 })));
+    k.cards = [...bm("Space", c.space), ...bm("Fintech", c.fintech)];
+    if (c.sellToBuy) k.analystMoves[c.year - 1] = [0, c.sellToBuy, 0, -c.sellToBuy, 0];
+    return k;
+  };
+  const go = () => setRun(simulate(s, knobs()));
+  const last = run?.[run.length - 1];
+  // Explore BMs (in total, after the sale) for business models + analysts to reach half the goal, so cash doubles it.
+  const needExplore = last ? Math.max(0, Math.ceil((goal.cap / 2 - last.mc.analysts) / 1000)) : null;
+  const sold = SEGS.filter((g) => c.sell[g]).map((g) => SEG_LABEL[g]).join(" + ");
+  const totalSpace = c.space.reduce((a, b) => a + b, 0), totalFin = c.fintech.reduce((a, b) => a + b, 0);
+  const summary = () => `Primary exit scenario: sell the ${sold} business (cars, Dragon Nexus, network effect, customer UX) to an acquirer in Year ${c.year} for $${c.priceB}B, fees ${c.feesPct}%, repay $${c.repayM}M of debt, keep ${c.keep}% of the cost base; then go big in space (${totalSpace} Explore BMs) and fintech (${totalFin} Explore BMs) at revenue $${c.econ.revenue}M, cost $${c.econ.cost}M, capex $${c.econ.capex}M per BM per year; ${c.sellToBuy} Sell -> Buy flips at the sale. Result: ${(run ?? []).map((r) => `Y${r.year} market cap ${capM(r.mc.total)} (cash ${money(r.cash)}, cash counted ${capM(r.mc.cashTerm)}, BMs ${capM(r.mc.portfolio)}, analysts ${capM(r.mc.analysts)})`).join("; ")}.`;
+  async function addToPlan() {
+    const at = s!.units.map((u) => u[c.year - 1] ?? 0);
+    const r = await fetch("/api/capital/add", { method: "POST", body: JSON.stringify({
+      name: `Primary exit: sell the ${sold} business for $${c.priceB}B, repay debt, go big in space and fintech`,
+      category: "Exit / M&A", year: c.year, cost: `${c.feesPct}% fees`,
+      how_it_works: `An acquirer buys the operating business (vehicles, Dragon Nexus, the network effect and the customer UX our loyal base loves) for $${c.priceB}B in Year ${c.year}. We repay $${c.repayM}M of debt, then redeploy into space (${totalSpace} Explore BMs) and fintech (${totalFin} Explore BMs).`,
+      effect: { cash_m: c.priceB * 1000 * (1 - c.feesPct / 100) - c.repayM, core: c.sell.core ? -at[0] : 0, growth: c.sell.growth ? -at[1] : 0, explore: totalSpace + totalFin - (c.sell.explore ? at[2] : 0), analysts: [0, c.sellToBuy, 0, -c.sellToBuy, 0], shares_m: 0, interest_m: -(c.repayM * 0.06) },
+      pitch_to: "The acquirer, the lead lender (consent to the sale and repayment), our board and shareholders, the facilitators (confirm the game allows it)",
+      fit: "Turns the operating business into cash at a $50B+ valuation and funds the space and fintech push; Dragon Nexus remains the stated strategy until a buyer commits.",
+      risks: "Cash only counts for market cap up to business models + analysts; buyer and price are [placeholders]; lender consent; whether the game allows a third-party sale (BOOM cards only buy models back at 3-4M).",
+      legal_basis: "A disclosed sale of a business to a third party with shareholder and lender approval.", red_lines: "No undisclosed side terms; no claiming a price before a signed offer.",
+    }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+    setMsg(r.error ? `⚠ ${r.error}` : "✓ Added to the capital plan (Capital › Plan & strategies). Set it to pitching or locked to put it in the projections.");
+  }
+  const numIn = (v: number, f: (n: number) => void, label: string, step = 1, w = "w-20") => <Num label={label} value={v} step={step} w={w} set={f} />;
+  return (
+    <section className="rounded-xl border-2 border-[var(--gold)] bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/30 dark:to-zinc-900 p-4 sm:p-5 space-y-4" aria-label="Exit scenario">
+      <div>
+        <p className="eyebrow text-amber-700 dark:text-amber-300">Primary what-if scenario</p>
+        <h2 className="text-2xl">Sell the business for ${c.priceB}B, clear the debt, go big in space &amp; fintech</h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">An acquirer buys our cars, Dragon Nexus, the network effect and the UX our loyal customers love. We keep the cash and the listing, and rebuild around space and fintech. Dragon Nexus stays our stated strategy. Confirm with the facilitators that the game allows a third-party sale.</p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2 text-sm">
+        <fieldset className="space-y-2">
+          <legend className="font-display uppercase tracking-wide">The sale</legend>
+          <label className="flex items-center gap-2">Price <input type="range" min={50} max={60} step={0.5} value={c.priceB} onChange={(e) => set({ priceB: +e.target.value })} className="flex-1 accent-amber-600" /><b className="w-14 text-right tabular-nums">${c.priceB}B</b></label>
+          <label className="flex items-center gap-2">In year
+            <select value={c.year} onChange={(e) => set({ year: +e.target.value, toYear: Math.max(c.toYear, +e.target.value) })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1">
+              {Array.from({ length: 10 - s.now + 1 }, (_, j) => s.now + j).map((y) => <option key={y} value={y}>Year {y}</option>)}
+            </select>
+            · play to <select value={c.toYear} onChange={(e) => set({ toYear: +e.target.value })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1">
+              {Array.from({ length: 10 - c.year + 1 }, (_, j) => c.year + j).map((y) => <option key={y} value={y}>Year {y}{y === goal.year ? " (goal)" : ""}</option>)}
+            </select>
+          </label>
+          <p className="flex flex-wrap gap-3">{SEGS.map((g) => <label key={g} className="flex items-center gap-1"><input type="checkbox" checked={c.sell[g]} onChange={(e) => set({ sell: { ...c.sell, [g]: e.target.checked } })} />sell {SEG_LABEL[g]}</label>)}</p>
+          <label className="flex items-center gap-2">Debt repaid ($M) {numIn(c.repayM, (n) => set({ repayM: n }), "Debt repaid", 25)}<span className="text-xs text-zinc-500">default: workbook debt + the case&rsquo;s $900M lead-lender loan</span></label>
+          <label className="flex items-center gap-2">Deal fees % {numIn(c.feesPct, (n) => set({ feesPct: n }), "Deal fees", 0.5, "w-16")}<span className="text-xs text-zinc-500">your assumption</span></label>
+          <label className="flex items-center gap-2">Cost base we keep % {numIn(c.keep, (n) => set({ keep: n }), "Cost base kept", 5, "w-16")}<span className="text-xs text-zinc-500">the buyer takes the rest</span></label>
+          <label className="flex items-center gap-2">Sell → Buy rating flips at the sale {numIn(c.sellToBuy, (n) => set({ sellToBuy: n }), "Sell to Buy flips", 1, "w-16")}</label>
+        </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="font-display uppercase tracking-wide">Go big: new Explore business models</legend>
+          <table><thead><tr><th />{yrs.map((y) => <th key={y} className="eyebrow text-zinc-500 px-1">Year {y}</th>)}</tr></thead>
+            <tbody>
+              {([["Space", "space"], ["Fintech", "fintech"]] as const).map(([l, key]) => (
+                <tr key={key}><th scope="row" className="text-left font-normal pr-2">{l}</th>
+                  {yrs.map((y) => <td key={y} className="px-0.5">{numIn(c[key][y - 1], (n) => set({ [key]: c[key].map((v, i) => (i === y - 1 ? n : v)) } as Partial<typeof c>), `${l} BMs Year ${y}`, 1, "w-16")}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="flex flex-wrap gap-3 items-center">Per new BM ($M):
+            {(["revenue", "cost", "capex"] as const).map((f) => <label key={f} className="flex items-center gap-1">{f === "capex" ? "cap.ex once" : `${f}/yr`} {numIn(c.econ[f], (n) => set({ econ: { ...c.econ, [f]: n } }), `New BM ${f}`, 0.5, "w-16")}</label>)}
+          </p>
+          <p className="text-xs text-zinc-500">Each Explore BM adds $1B of market cap in the workbook formula. Economics default to today&rsquo;s average Explore BM; tune them.</p>
+        </fieldset>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={go} className="rounded-md px-4 py-2 font-semibold bg-[var(--gold)] text-[var(--ink)]">▶ Run the exit scenario</button>
+        {run && <button onClick={addToPlan} className="rounded-md px-3 py-2 text-sm font-semibold bg-green-700 text-white">＋ Add to the capital plan</button>}
+        {run && <button onClick={async () => {
+          const comps = await fetch("/api/comps").then((r) => r.json()).catch(() => []);
+          ask(`${summary()}\n\nComparable valuations we hold: ${(Array.isArray(comps) ? comps : []).map((x: { company: string; valuation_usd_b: number | null; basis: string; as_of: string }) => `${x.company} ${x.valuation_usd_b === null ? "n/a" : `$${x.valuation_usd_b}B`} (${x.basis}, ${x.as_of})`).join("; ") || "none yet"}.\n\nWrite the exit-path brief for our primary scenario: who could buy the car + Dragon Nexus business and why (types of buyer, [placeholders] for names we haven't confirmed), how to justify $50-60B, the order of moves (lender consent, sale, debt repayment, space and fintech build), what the simulation says about market cap after the sale (cash only counts up to business models + analysts) and how many space/fintech business models and rating flips it takes to reach $${goal.cap / 1000}B, and the game-rule questions to confirm with the facilitators.`);
+        }} className="rounded-md px-3 py-2 text-sm font-semibold bg-amber-600 text-white">✨ Write the exit-path brief</button>}
+      </div>
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("⚠") ? "text-red-600" : "text-green-700 dark:text-green-400"}`}>{msg}</p>}
+      {run && last && (
+        <div className="space-y-2" aria-live="polite">
+          <p className="text-sm"><b>After the sale, Year {last.year}:</b> market cap {capM(last.mc.total)} vs the ${goal.cap / 1000}B goal. To get there, business models + analyst ratings must reach {capM(goal.cap / 2)} so cash can double it: about <b>{needExplore} Explore BMs</b> in total with today&rsquo;s ratings (we&rsquo;d hold {last.levers.explore}).</p>
+          <SimTimeline rows={run} />
         </div>
       )}
     </section>

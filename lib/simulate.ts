@@ -43,6 +43,9 @@ export type Knobs = {
   tax: number; // %
   cards: SimCard[]; // specific BM cards (from the Cards tab)
   effects: { year: number; label: string; effect: Effect; scale: number }[]; // capital strategies
+  // Sell the operating business to an acquirer: in `year` the sold segments' BMs, revenue and costs leave,
+  // the price (less fees) arrives as cash and `repayM` of debt is paid off (its interest stops at `rate`).
+  exit: { year: number; priceB: number; feesPct: number; repayM: number; costBaseKeptPct: number; sell: Record<Seg, boolean> } | null;
 };
 
 export const zeros = () => Array.from({ length: Y }, () => 0);
@@ -54,7 +57,7 @@ export const emptyKnobs = (toYear: number): Knobs => ({
   profile: { core: { revenue: 0, cost: 0, capex: 0 }, growth: { revenue: 0, cost: 0, capex: 0 }, explore: { revenue: 0, cost: 0, capex: 0 } },
   analystMoves: Array.from({ length: Y }, () => [0, 0, 0, 0, 0]),
   borrow: zeros(), rate: 6, equity: zeros(), issuePrice: 1, buyback: zeros(), payout: 0, rolls: zeros(), shocks: zeros(), tax: 21,
-  cards: [], effects: [],
+  cards: [], effects: [], exit: null,
 });
 
 export type Event = { label: string; mc: number /* $M, direct */; cash: number /* $ */ };
@@ -67,16 +70,19 @@ export function simulate(b: Base, k: Knobs) {
     for (let j = i; j >= 0; j--) { const r = b.analysts.map((row) => row[j] ?? 0); if (j <= b.now - 1 || r.some(Boolean)) return r; }
     return [0, 0, 0, 0, 0];
   };
-  let dCash = 0, newDebt = 0, shares = b.shares, prevPrice = k.issuePrice;
+  let dCash = 0, newDebt = 0, repaid = 0, shares = b.shares, prevPrice = k.issuePrice;
   const out = [];
   for (let year = b.now; year <= Math.min(Y, k.toYear); year++) {
     const i = year - 1, t = year - b.now, events: Event[] = [];
     // Profit deltas from the knobs.
     let dRev = 0, dBmCost = 0, dCapex = 0;
+    const segR = SEGS.map((_, j) => b.segRev[j][i] ?? 0), segC = SEGS.map((_, j) => b.segCost[j][i] ?? 0); // this year, per segment
     SEGS.forEach((s, j) => {
       const f = (1 + k.growth[s] / 100) ** t - 1;
       dRev += (b.segRev[j][i] ?? 0) * f;
       dBmCost += (b.segCost[j][i] ?? 0) * f;
+      segR[j] += (b.segRev[j][i] ?? 0) * f;
+      segC[j] += (b.segCost[j][i] ?? 0) * f;
     });
     if (dRev) events.push({ label: `Organic growth of today's BMs: revenue ${money(dRev)}`, mc: 0, cash: 0 });
     const units = SEGS.map((s, j) => (b.units[j][i] ?? 0));
@@ -87,6 +93,8 @@ export function simulate(b: Base, k: Knobs) {
         units[j] += n;
         dRev += n * k.profile[s].revenue * M;
         dBmCost += n * k.profile[s].cost * M;
+        segR[j] += n * k.profile[s].revenue * M;
+        segC[j] += n * k.profile[s].cost * M;
         if (a === year) {
           dCapex += n * k.profile[s].capex * M;
           events.push({ label: `+${n} ${s[0].toUpperCase()}${s.slice(1)} BM${n === 1 ? "" : "s"}`, mc: n * BM_VALUE[s], cash: -n * k.profile[s].capex * M });
@@ -99,7 +107,26 @@ export function simulate(b: Base, k: Knobs) {
       units[j] += 1;
       dRev += c.revenue[i] ?? 0;
       dBmCost += c.cost[i] ?? 0;
+      segR[j] += c.revenue[i] ?? 0;
+      segC[j] += c.cost[i] ?? 0;
       if (c.startYear === year) { dCapex += c.capex; events.push({ label: `Card starts: ${c.label}`, mc: BM_VALUE[c.type], cash: -c.capex }); }
+    }
+    // The sale: from the exit year the sold segments are gone (their BMs, revenue and costs).
+    const ex = k.exit && year >= k.exit.year ? k.exit : null;
+    let soldMc = 0;
+    if (ex) SEGS.forEach((s, j) => {
+      if (!ex.sell[s]) return;
+      soldMc += units[j] * BM_VALUE[s];
+      dRev -= segR[j];
+      dBmCost -= segC[j];
+      units[j] = 0;
+    });
+    if (ex && year === ex.year) {
+      const proceeds = ex.priceB * 1e9 * (1 - ex.feesPct / 100);
+      repaid = Math.min(ex.repayM * M, b.debt + newDebt + ex.repayM * M);
+      dCash += proceeds - ex.repayM * M;
+      events.push({ label: `Sell ${SEGS.filter((s) => ex.sell[s]).join(" + ")} business to an acquirer for $${ex.priceB}B (${ex.feesPct}% fees)`, mc: -soldMc, cash: proceeds });
+      if (ex.repayM) events.push({ label: `Repay $${ex.repayM.toLocaleString()}M of debt (saves ${money(ex.repayM * M * k.rate / 100)}/yr interest)`, mc: 0, cash: -ex.repayM * M });
     }
     const analysts = baseAnalysts(i);
     for (let a = b.now; a <= year; a++) (k.analystMoves[a - 1] ?? []).forEach((d, r) => (analysts[r] += d));
@@ -127,10 +154,12 @@ export function simulate(b: Base, k: Knobs) {
     if (borrow) events.push({ label: `Borrow ${money(borrow)} at ${k.rate}% (${money(-borrow * k.rate / 100)}/yr interest from next year)`, mc: 0, cash: borrow });
     if (equity) { shares += equity / k.issuePrice; events.push({ label: `Issue ${money(equity)} of new shares at $${k.issuePrice}`, mc: 0, cash: equity }); }
     if (buyback) { shares = Math.max(1, shares - buyback / Math.max(0.01, prevPrice)); events.push({ label: `Buy back ${money(buyback)} of shares`, mc: 0, cash: -buyback }); }
-    const dCostBase = (b.costBase[i] ?? 0) * ((1 + k.costInflation / 100) ** t - 1) + (k.rolls[i] ?? 0) * 100_000;
+    let dCostBase = (b.costBase[i] ?? 0) * ((1 + k.costInflation / 100) ** t - 1) + (k.rolls[i] ?? 0) * 100_000;
+    if (ex) dCostBase -= (b.costBase[i] ?? 0) * (1 + k.costInflation / 100) ** t * (1 - ex.costBaseKeptPct / 100); // the buyer takes the rest
+    const interestSaved = k.exit && year > k.exit.year ? k.exit.repayM * M * (k.rate / 100) : 0;
     const shock = (k.shocks[i] ?? 0) * M;
     if (shock) events.push({ label: shock > 0 ? `Shock: one-time hit ${money(-shock)}` : `Windfall ${money(-shock)}`, mc: 0, cash: -shock });
-    const dPretax = dRev - dBmCost - dCostBase - dInterest - shock;
+    const dPretax = dRev - dBmCost - dCostBase - dInterest + interestSaved - shock;
     const net = (b.net[i] ?? 0) + dPretax * (1 - k.tax / 100);
     const dividends = Math.max(0, net) * (k.payout / 100);
     if (dividends) events.push({ label: `Dividend ${k.payout}% of profit`, mc: 0, cash: -dividends });
@@ -144,7 +173,7 @@ export function simulate(b: Base, k: Knobs) {
     const price = (mc.total * M) / Math.max(1, shares);
     prevPrice = Math.max(0.01, price);
     out.push({
-      year, revenue, net, cash, debt: b.debt + newDebt, borrowAbility: (10 * revenue) / 2, shares, price, levers: lev, mc, baseMc,
+      year, revenue, net, cash, debt: Math.max(0, b.debt + newDebt - repaid), borrowAbility: (10 * revenue) / 2, shares, price, levers: lev, mc, baseMc,
       uplift: mc.total - baseMc.total, drivers: { portfolio: mc.portfolio - baseMc.portfolio, analysts: mc.analysts - baseMc.analysts, cash: mc.cashTerm - baseMc.cashTerm },
       events, effShares,
     });
@@ -162,7 +191,8 @@ export function explain(rows: SimYear[]) {
     const warn: string[] = [];
     if (r.cash < 0) warn.push(`cash is negative (${fmt(r.cash / 1e6, false)}), so cash adds nothing to market cap and the gap must be funded`);
     if (r.debt > r.borrowAbility) warn.push(`debt (${fmt(r.debt / 1e6, false)}) is above borrowing ability (${fmt(r.borrowAbility / 1e6, false)}, 10 × revenue ÷ 2)`);
-    if (r.mc.cashCapped) warn.push("cash is above the cap: extra cash adds nothing until portfolio + analysts grow");
+    if (r.cash > 0 && r.mc.portfolio + r.mc.analysts <= 0) warn.push(`cash (${fmt(r.cash / 1e6, false)}) counts for nothing in market cap while business models + analyst ratings are below zero (${fmt(r.mc.portfolio + r.mc.analysts)}): add Explore BMs or turn Sell ratings`);
+    else if (r.mc.cashCapped) warn.push(`cash is above the cap: only ${fmt(r.mc.cashTerm)} of it counts (= business models + analyst ratings); grow those to unlock the rest`);
     if (r.mc.total < 0) warn.push("market cap is below zero");
     return { year: r.year, text: parts.length ? `vs the workbook: ${parts.join(", ")}` : "same as the workbook", warn };
   });

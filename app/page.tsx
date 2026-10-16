@@ -8,8 +8,9 @@ import { Copilot, type ActTask, type Pending, type Seed } from "./copilot";
 import { ActivityPanel } from "./activity";
 import { ProfitBorrow } from "./profit-borrow";
 import { Comps } from "./comps";
+import { YearStrategies } from "./year-strategies";
 import { YearRound } from "./year-round";
-import { Simulator } from "./simulator";
+import { ExitScenario, Simulator } from "./simulator";
 import { DeckView } from "./deck-view";
 import { PresentReturn } from "./present-return";
 import { DashboardPanel } from "./dashboard";
@@ -358,8 +359,8 @@ export default function Home() {
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${area === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
-              {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /></>)}
-              {area === "Simulator" && <Simulator version={version} ask={ask} />}
+              {area === "What-if" && (<><YearStrategies version={version} /><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} ask={ask} makeTasks={makeTasks} /></>)}
+              {area === "Simulator" && (<><ExitScenario version={version} ask={ask} /><Simulator version={version} ask={ask} /></>)}
               {area === "Innovation" && <InnovationPanel ask={ask} version={version} />}
             </>)}
             {tab === "Activity" && <ActivityPanel version={version} />}

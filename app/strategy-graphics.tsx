@@ -56,9 +56,9 @@ export function HorizonCurves({ when }: { when?: Record<string, string> }) {
   const curve = (f: (t: number) => number) => Array.from({ length: 46 }, (_, i) => { const t = 1 + (i / 45) * 9; return `${i ? "L" : "M"}${x(t).toFixed(1)},${y(f(t)).toFixed(1)}`; }).join(" ");
   const s = (t: number, mid: number, k = 1.2) => 1 / (1 + Math.exp(-k * (t - mid)));
   const lines = [
-    { id: "H1", name: "H1 · Maintain the legacy business", f: (t: number) => 0.55 * (1 - s(t, 7, 0.9)) + 0.12, c: C.H1, at: 2 },
-    { id: "H2", name: "H2 · Satellite data products", f: (t: number) => 0.62 * s(t, 4.5), c: C.H2, at: 5.4 },
-    { id: "H3", name: "H3 · Ecosystem network effect", f: (t: number) => 0.9 * s(t, 7.5, 1.1), c: C.H3, at: 8.9 },
+    { id: "H1", name: "H1 · Build the vehicles", f: (t: number) => 0.55 * (1 - s(t, 7, 0.9)) + 0.12, c: C.H1, at: 2 },
+    { id: "H2", name: "H2 · Dragon Nexus marketplace", f: (t: number) => 0.62 * s(t, 4.5), c: C.H2, at: 5.4 },
+    { id: "H3", name: "H3 · Own the intelligence network", f: (t: number) => 0.9 * s(t, 7.5, 1.1), c: C.H3, at: 8.9 },
   ];
   return (
     <Figure n={2} caption={`Three horizons: vehicle manufacturing funds today while the Dragon Nexus marketplace and the intelligence network take over as the growth engines${when ? ` (${Object.entries(when).map(([k, v]) => `${k} ${v}`).join(" · ")})` : ""}. Illustrative shape, not a forecast.`}>
@@ -81,9 +81,9 @@ export function HorizonCurves({ when }: { when?: Record<string, string> }) {
 // 3. Who pays for which horizon.
 export function FundingFlow() {
   const rows = [
-    { from: "Operating cash from cars & legacy models", to: "H1 · Maintain", c: C.H1 },
-    { from: "Data customers: fleets, cities, mobility services", to: "H2 · Satellite data", c: C.H2 },
-    { from: "Partners: prepaid licences, pilots, co-investment", to: "H3 · Ecosystem", c: C.H3 },
+    { from: "Manufacturing partner: the China manufacturing cards", to: "H1 · Build the vehicles", c: C.H1 },
+    { from: "Founding customers: prepaid service agreements", to: "H2 · Dragon Nexus pilot", c: C.H2 },
+    { from: "Satellite / telecom partner: minority stake in the network", to: "H3 · Intelligence network", c: C.H3 },
   ];
   return (
     <Figure n={3} caption="How we pay for it: each horizon has its own funder, so the legacy business never has to carry the whole bet — and no new debt is secured on the lender's collateral.">

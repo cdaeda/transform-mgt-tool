@@ -5,7 +5,7 @@ import { knobLabel, mixFor } from "@/lib/knob";
 
 type Mix = { h1: number; h2: number; h3: number };
 const HUES = { h1: "var(--core)", h2: "var(--growth)", h3: "var(--explore)" } as const;
-const NAMES = { h1: "H1 Maintain", h2: "H2 Satellite data", h3: "H3 Ecosystem" } as const;
+const NAMES = { h1: "H1 Build the vehicles", h2: "H2 Dragon Nexus", h3: "H3 Intelligence network" } as const;
 
 // 270° sweep: knob 0 sits at -135°, 100 at +135° (0° = straight up).
 const angle = (k: number) => -135 + (k / 100) * 270;

@@ -1,5 +1,6 @@
 "use client";
 
+import { CardActions } from "./card-actions";
 import { useEffect, useMemo, useState } from "react";
 import type { Card, FinancingIdea, Strategy } from "@/lib/db";
 import { n2col, unitsCol } from "@/lib/impact";
@@ -68,7 +69,25 @@ function levers(year: number) {
 // Workbook input cells behind the table rows (row 33 + year); everything else is a formula.
 const INPUT_COL: Partial<Record<keyof Year, string>> = { costBase: "C", capex: "D", oneTime: "E", interest: "K", depreciation: "L", cash: "N", dividend: "R" };
 
-function FinanceTable({ base, scen, focus, editable, onSaved }: { base: Year[]; scen?: Year[]; focus: number; editable?: boolean; onSaved?: () => void }) {
+// Tap a row's name to act on it: explain, improve, fund a gap, fix it (CFO), or make it a task.
+function RowActions({ label, line, negative, cfo, ask, makeTasks }: { label: string; line: string; negative: boolean; cfo: boolean; ask: (t: string) => void; makeTasks: (c: string) => void }) {
+  const act = (t: string) => (e: React.MouseEvent) => { (e.currentTarget.closest("details") as HTMLDetailsElement).open = false; ask(t); };
+  const item = "block w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800";
+  return (
+    <details className="relative">
+      <summary className="list-none cursor-pointer underline decoration-dotted underline-offset-2">{label} ▾</summary>
+      <div className="mt-1 mb-2 w-56 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-surface shadow-lg py-1 whitespace-normal">
+        <button className={item} onClick={act(`Explain our "${label}" line by year (${line}): what drives it in the Team 1 workbook (which cells and cards), and whether anything looks wrong.`)}>💬 Explain this line</button>
+        <button className={item} onClick={act(`What would improve our "${label}" line (${line})? Give the 3 moves with the biggest effect this year and next (cards, cost cuts, financing), with the cells they change and their effect on net profit, cash and market cap.`)}>📈 What would improve this</button>
+        {negative && <button className={item} onClick={act(`Our "${label}" line goes negative (${line}). How do we fund the gap? Rank the options from our borrowing ability (10 x revenue / 2), borrowing plans, capital strategies and partners, with amounts, timing and lender consent.`)}>💰 Fund the gap</button>}
+        {cfo && <button className={item} onClick={act(`Fix our "${label}" line (${line}) in the Team 1 workbook: read the cells behind it, correct anything wrong, write the fixes, and list each cell changed with its effect.`)}>🛠 Fix it in the workbook</button>}
+        <button className={item} onClick={(e) => { (e.currentTarget.closest("details") as HTMLDetailsElement).open = false; makeTasks(`Improve our "${label}" line (${line}).`); }}>📋 Make a task</button>
+      </div>
+    </details>
+  );
+}
+
+function FinanceTable({ base, scen, focus, editable, onSaved, cfo = false, ask, makeTasks }: { base: Year[]; scen?: Year[]; focus: number; editable?: boolean; onSaved?: () => void; cfo?: boolean; ask: (t: string) => void; makeTasks: (c: string) => void }) {
   const [err, setErr] = useState("");
   const save = async (cell: string, value: string) => {
     const r = await fetch("/api/sheet", { method: "POST", body: JSON.stringify({ range: cell, values: [[value]] }) }).then((x) => x.json());
@@ -91,7 +110,10 @@ function FinanceTable({ base, scen, focus, editable, onSaved }: { base: Year[]; 
         <tbody>
           {ROWS.map(([label, k, f]) => (
             <tr key={k}>
-              <td className="pr-2 text-zinc-500 whitespace-nowrap">{label}</td>
+              <td className="pr-2 text-zinc-500 whitespace-nowrap">
+                <RowActions label={label} cfo={cfo} ask={ask} makeTasks={makeTasks} negative={base.some((y) => (y[k] as number) < 0)}
+                  line={base.map((y) => `Y${y.year} ${f(y[k] as number)}`).join(", ")} />
+              </td>
               {base.map((y, i) => {
                 const a = y[k] as number, b = scen?.[i][k] as number | undefined;
                 const changed = b !== undefined && Math.abs(b - a) > 1e-9;
@@ -120,7 +142,7 @@ function FinanceTable({ base, scen, focus, editable, onSaved }: { base: Year[]; 
   );
 }
 
-export function FinancesPanel({ version, onApplied, editable = false, cfo = false }: { version: number; onApplied: () => void; editable?: boolean; cfo?: boolean }) {
+export function FinancesPanel({ version, onApplied, editable = false, cfo = false, ask: askCopilot, makeTasks }: { version: number; onApplied: () => void; editable?: boolean; cfo?: boolean; ask: (t: string) => void; makeTasks: (context: string) => void }) {
   const [base, setBase] = useState<Year[] | null>(null);
   const [focus, setFocus] = useState(1);
   const [current, setCurrent] = useState<Record<string, string>>({});
@@ -244,7 +266,7 @@ export function FinancesPanel({ version, onApplied, editable = false, cfo = fals
         <section className="rounded-xl border-2 border-amber-500/60 bg-amber-50/60 dark:bg-amber-950/30 p-4" aria-label="Strategy knob">
           <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
             <h2 className="text-xl">Strategy knob · H1 / H2 / H3 mix</h2>
-            <span className="text-xs text-zinc-500">Turn toward Defend to protect the legacy business, toward Transform to bet on satellite data and the ecosystem. Card evaluations, the financing chat and the critic all use this target.</span>
+            <span className="text-xs text-zinc-500">Turn toward Defend to put more into vehicle manufacturing, toward Transform to bet on Dragon Nexus and the intelligence network. Card evaluations, the financing chat and the critic all use this target.</span>
           </div>
           <HorizonKnob editable value={strategy.knob} target={{ h1: strategy.h1_pct, h2: strategy.h2_pct, h3: strategy.h3_pct }}
             onCommit={(knob, m) => api("/api/strategy", "PUT", { knob, h1_pct: m.h1, h2_pct: m.h2, h3_pct: m.h3 }).then(() => { setStrategy({ ...strategy, knob, h1_pct: m.h1, h2_pct: m.h2, h3_pct: m.h3 }); refreshOverview(); })} />
@@ -261,7 +283,7 @@ export function FinancesPanel({ version, onApplied, editable = false, cfo = fals
           Y{focus} market cap {capM(base[focus - 1].cap)} = cash {capM(base[focus - 1].capCash)} + BMs {capM(base[focus - 1].capBM)} + analysts {capM(base[focus - 1].capAnalyst)}
         </span>
       </div>
-      <FinanceTable base={base} scen={scen ?? undefined} focus={focus} editable={editable && !scen} onSaved={onApplied} />
+      <FinanceTable base={base} scen={scen ?? undefined} focus={focus} editable={editable && !scen} onSaved={onApplied} cfo={cfo} ask={askCopilot} makeTasks={makeTasks} />
       {scen && (
         <div className="flex gap-2 items-center flex-wrap text-sm">
           <span className="text-amber-700 dark:text-amber-400">Showing a what-if (→ values). Nothing is saved.</span>
@@ -334,11 +356,14 @@ export function FinancesPanel({ version, onApplied, editable = false, cfo = fals
           <fieldset className="border border-zinc-200 dark:border-zinc-800 rounded p-2">
             <legend className="text-xs uppercase text-zinc-500 px-1">Add candidate cards to the scenario</legend>
             {cards.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={include.includes(c.id)}
-                  onChange={(e) => setInclude(e.target.checked ? [...include, c.id] : include.filter((x) => x !== c.id))} />
-                {c.type}: {c.title} <span className="text-xs text-zinc-500">capex {$(c.capex)} Y{c.start_year} · {c.status}</span>
-              </label>
+              <div key={c.id} className="text-sm space-y-0.5">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={include.includes(c.id)}
+                    onChange={(e) => setInclude(e.target.checked ? [...include, c.id] : include.filter((x) => x !== c.id))} />
+                  {c.type}: {c.title} <span className="text-xs text-zinc-500">capex {$(c.capex)} Y{c.start_year}</span>
+                </label>
+                <div className="pl-6"><CardActions card={c} ask={askCopilot} /></div>
+              </div>
             ))}
           </fieldset>
         )}

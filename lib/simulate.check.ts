@@ -28,3 +28,15 @@ assert.equal(r[1].debt, 125e6);
 k.analystMoves[0] = [0, 2, 0, -2, 0]; // turn 2 Sells into Buys in Year 1
 assert.equal(simulate(b, k)[0].drivers.analysts, 4000);
 console.log("simulate ok");
+
+// Exit: sell Core in Year 2 for $50B, 2% fees, repay $25M; Core BMs and revenue leave, cash arrives.
+const x = emptyKnobs(3);
+x.exit = { year: 2, priceB: 50, feesPct: 2, repayM: 25, costBaseKeptPct: 100, sell: { core: true, growth: false, explore: false } };
+const e = simulate(b, x);
+assert.equal(e[0].levers.core, 2); // before the sale
+assert.equal(e[1].levers.core, 0); // sold
+assert.equal(e[1].revenue, 0); // Core was all our revenue
+assert.equal(e[1].debt, 0);
+assert.ok(e[1].cash > 48e9 && e[1].cash < 49.1e9); // ~$49B in, less the lost Core profit and the repayment
+assert.equal(e[1].mc.cashTerm, 0); // all that cash counts for nothing while BMs + analysts are negative
+console.log("exit ok");

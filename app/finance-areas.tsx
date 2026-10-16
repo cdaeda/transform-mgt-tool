@@ -1,5 +1,6 @@
 "use client";
 
+import { CardActions } from "./card-actions";
 import { useEffect, useState } from "react";
 import type { Card } from "@/lib/db";
 import { unitsCol } from "@/lib/impact";
@@ -94,7 +95,7 @@ export function InnovationPanel({ ask, version }: { ask: (t: string) => void; ve
             <section key={s} className="game-card !p-3 space-y-2">
               <h3 className="text-lg leading-none">{s}</h3>
               {mine.length ? (
-                <ul className="space-y-1 text-sm">{mine.map((c) => <li key={c.id}><b>{c.title}</b> <span className="text-xs text-zinc-500">· {c.status}{c.primary_horizon && ` · ${c.primary_horizon}`}</span></li>)}</ul>
+                <ul className="space-y-1.5 text-sm">{mine.map((c) => <li key={c.id}><b>{c.title}</b> <span className="text-xs text-zinc-500">{c.primary_horizon && `· ${c.primary_horizon}`}</span><div><CardActions card={c} ask={ask} /></div></li>)}</ul>
               ) : <p className="text-sm text-zinc-500">No cards yet. Photograph one on the Cards tab.</p>}
             </section>
           );
@@ -104,7 +105,7 @@ export function InnovationPanel({ ask, version }: { ask: (t: string) => void; ve
         <section className="game-card space-y-2">
           <h3 className="text-lg">Explore business models</h3>
           {explore.length ? (
-            <ul className="space-y-1 text-sm">{explore.map((c) => <li key={c.id}><b>{c.title}</b> <span className="text-xs text-zinc-500">· {c.status} · AI {c.recommendation}</span></li>)}</ul>
+            <ul className="space-y-1.5 text-sm">{explore.map((c) => <li key={c.id}><b>{c.title}</b> <span className="text-xs text-zinc-500">· AI {c.recommendation}</span><div><CardActions card={c} ask={ask} /></div></li>)}</ul>
           ) : <p className="text-sm text-zinc-500">No Explore cards logged in the app yet.</p>}
         </section>
         <section className="game-card space-y-2">
