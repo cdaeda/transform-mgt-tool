@@ -1,5 +1,5 @@
 import type { Card } from "@/lib/db";
-import { COST_OFFSET, REVENUE_BLOCK, UNITS_ROW, freeRow, num, unitsCol } from "@/lib/impact";
+import { COST_OFFSET, REVENUE_BLOCK, UNITS_ROW, freeRow, n2col, num, unitsCol } from "./impact.ts";
 import type { Cell } from "@/lib/cells";
 
 type BMCard = Card & { type: "Core" | "Growth" | "Explore" };
@@ -24,4 +24,20 @@ export async function bookingWrites(card: BMCard, read: Read, write: (range: str
     await write(cell, [[num((await read(cell)).values[0]?.[0]) + 1]]);
   }
   return row;
+}
+
+// Analyst card: move one rating card between rows 252-256 (Outperform, Buy, Hold, Sell, Crash) in the
+// given game year's column (D for Year 1, then every third column). from/to -1 = a new card / a card lost.
+export const ANALYST_ROW = 252;
+export async function analystWrites(year: number, from: number, to: number, read: Read, write: (range: string, values: Cell[][]) => Promise<unknown>) {
+  if (from === to || ![from, to].every((k) => Number.isInteger(k) && k >= -1 && k <= 4)) throw new Error("Pick a rating change.");
+  const col = n2col(4 + 3 * (year - 1));
+  for (const [k, d] of [[from, -1], [to, 1]]) {
+    if (k < 0) continue;
+    const cell = `${col}${ANALYST_ROW + k}`;
+    const n = num((await read(cell)).values[0]?.[0]) + d;
+    if (n < 0) throw new Error(`No card to move out of ${cell} (it holds 0).`);
+    await write(cell, [[n]]);
+  }
+  return ANALYST_ROW + (to >= 0 ? to : from);
 }

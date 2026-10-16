@@ -52,15 +52,19 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
   // void: newer Chrome returns a Promise from scrollIntoView, which React would treat as a cleanup.
   useEffect(() => void end.current?.scrollIntoView({ block: "end" }), [msgs, busy]);
   // Reopen this tab's latest thread (decided proposals show as past; the Activity tab has the outcome).
+  // Loaded the first time the tab is opened, not all eight at once (the DB pooler caps connections).
   const touched = useRef(false);
+  const sent = useRef(false);
   useEffect(() => {
+    if (!active || touched.current) return;
+    touched.current = true; // one load per tab per page view
     fetch(`/api/chat?tab=${encodeURIComponent(tab)}`).then((r) => r.json()).then((t) => {
-      if (!t || touched.current) return;
+      if (!t || sent.current) return;
       setThread({ id: t.id, mode: t.task_id ? "act" : "chat", taskId: t.task_id });
       setTitle(t.title);
       setMsgs((t.messages as Msg[]).map((m) => ({ ...m, proposals: m.proposals?.map((p) => ({ ...p, state: "past" as const })) })));
     }).catch(() => {});
-  }, [tab]);
+  }, [tab, active]);
 
   const seed = msgs.find((m) => m.role === "user");
   const threadSummary = (list: Msg[]) =>
@@ -81,7 +85,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
 
   async function send(text: string, base = msgs, threadOverride?: typeof thread, titleOverride?: string) {
     if (!text.trim() || busy) return base;
-    touched.current = true;
+    touched.current = sent.current = true;
     const next: Msg[] = [...base, { role: "user", content: text, by: myRole() }];
     setMsgs(next);
     setInput("");
@@ -148,7 +152,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
     const p = pendingRef.current;
     if (p && p.tab === tab) {
       pendingRef.current = null;
-      touched.current = true;
+      touched.current = sent.current = true;
       const th = { id: newId(), mode: "chat" as const, taskId: null };
       setThread(th);
       setTitle(p.title);
@@ -157,7 +161,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
     }
     askRef.current = (t: string) => void send(t); // panels hand questions to the copilot
     actRef.current = (task: ActTask) => {
-      touched.current = true;
+      touched.current = sent.current = true;
       const t = { id: newId(), mode: "act" as const, taskId: task.id };
       setThread(t);
       setTitle(task.title);
@@ -169,7 +173,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
       onReply();
     };
     threadRef.current = (s: Seed) => {
-      touched.current = true;
+      touched.current = sent.current = true;
       setThread({ id: "", mode: "chat", taskId: null });
       setTitle(s.title);
       setMsgs([
@@ -184,7 +188,7 @@ export function Copilot({ tab, active, pendingRef, onReply, askRef, threadRef, n
       {title && (
         <div className="flex items-center justify-between gap-2">
           <p className="eyebrow text-zinc-500 truncate">{thread.mode === "act" ? "⚡ Working task" : "Thread"} · {title}</p>
-          <button onClick={() => (touched.current = true, setMsgs([]), setTitle(""), setThread({ id: "", mode: "chat", taskId: null }))} className="text-xs underline shrink-0">New chat</button>
+          <button onClick={() => (touched.current = sent.current = true, setMsgs([]), setTitle(""), setThread({ id: "", mode: "chat", taskId: null }))} className="text-xs underline shrink-0">New chat</button>
         </div>
       )}
       <div className="flex-1 overflow-y-auto space-y-3 text-sm">

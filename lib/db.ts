@@ -1,11 +1,12 @@
 import postgres from "postgres";
 
-// Server-only. Supabase session pooler (port 5432): safe for parallel queries on one connection
-// (the transaction pooler on 6543 mixed up replies under load). Few connections per instance.
-// The session pooler caps clients at 15, so: one client per server process (reused across dev hot
-// reloads via globalThis), one connection each (queries pipeline on it), closed after 5s idle.
+// Server-only. Supabase TRANSACTION pooler (port 6543), built for serverless: Vercel pauses idle
+// instances, so the session pooler (5432, 15 clients max) filled up with connections that never got
+// to close. A 5432 URL is switched to 6543 here. Tested: 750 pipelined queries and concurrent
+// transactions on one connection came back matched. One client per process (reused across dev hot
+// reloads via globalThis), one connection, closed after 1s idle.
 const g = globalThis as unknown as { __sql?: ReturnType<typeof postgres> };
-export const sql = (g.__sql ??= postgres(process.env.DATABASE_URL ?? "postgres://unset", { prepare: false, max: 1, idle_timeout: 5 }));
+export const sql = (g.__sql ??= postgres((process.env.DATABASE_URL ?? "postgres://unset").replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/"), { prepare: false, max: 1, idle_timeout: 1 }));
 
 export const BM_TYPES = ["Core", "Growth", "Explore"] as const;
 export const CARD_TYPES = [

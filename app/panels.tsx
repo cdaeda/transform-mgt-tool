@@ -5,6 +5,7 @@ import { Markdown } from "./markdown";
 import { refreshOverview, useOverview } from "./overview-store";
 import type { Card, FinancingIdea, Strategy, Team } from "@/lib/db";
 import { impact, n2col, type ImpactCard } from "@/lib/impact";
+import { ANALYST_NAMES } from "@/lib/marketcap";
 
 // Local copy: importing values from lib/db would pull the database driver into the browser bundle.
 const isBM = (c: Card): c is Card & ImpactCard => ["Core", "Growth", "Explore"].includes(c.type);
@@ -90,10 +91,12 @@ function CardRow({ card, onChange, ask, cfo }: { card: Card; onChange: (c: Card)
   const [msg, setMsg] = useState("");
   const patch = (p: Partial<Card>) => api<Card>("/api/cards", "PATCH", { id: card.id, ...p }).then(onChange, (e) => setMsg(e.message));
   const [booking, setBooking] = useState(false);
+  // Analyst cards: which rating moves (-1 = a new card / a card lost).
+  const [move, setMove] = useState({ from: 3, to: 1 });
   const book = () => {
     setBooking(true);
     setMsg("Writing to a scratch copy; the critic is auditing it…");
-    api<{ card: Card; saved: boolean; cells: string[]; audit: Audit | null; pushed?: number; pushError?: string }>("/api/cards/book", "POST", { id: card.id })
+    api<{ card: Card; saved: boolean; cells: string[]; audit: Audit | null; pushed?: number; pushError?: string }>("/api/cards/book", "POST", { id: card.id, ...(card.type === "Analyst" ? move : {}) })
       .then(
         (r) => {
           onChange(r.card);
@@ -152,6 +155,18 @@ function CardRow({ card, onChange, ask, cfo }: { card: Card; onChange: (c: Card)
       </details>
       <div className="flex gap-2 flex-wrap items-center">
         {card.status === "selected" && isBM(card) && cfo && <button onClick={book} disabled={booking} className={`${btn} bg-green-700 text-white`}>Book into workbook (audited)</button>}
+        {card.type === "Analyst" && card.status !== "booked" && card.status !== "passed" && cfo && (
+          <span className="flex flex-wrap items-center gap-1.5 text-sm">
+            {(["from", "to"] as const).map((k) => (
+              <select key={k} value={move[k]} onChange={(e) => setMove({ ...move, [k]: +e.target.value })} aria-label={k === "from" ? "Rating before" : "Rating after"}
+                className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-1.5 py-1">
+                <option value={-1}>{k === "from" ? "New card" : "Card lost"}</option>
+                {ANALYST_NAMES.map((n, i) => <option key={n} value={i}>{k === "from" ? `from ${n}` : `to ${n}`}</option>)}
+              </select>
+            ))}
+            <button onClick={book} disabled={booking || move.from === move.to} className={`${btn} bg-green-700 text-white`}>Book rating change (audited)</button>
+          </span>
+        )}
         <button onClick={() => ask(`Let's discuss card #${card.id} (${card.title}). Re-check it against our current numbers, ambition and the other teams, and tell me what you'd do and whether to partner.`)} className={`${btn} border border-zinc-400`}>Discuss with CFO</button>
         {msg && <span className="text-xs whitespace-pre-wrap">{msg}</span>}
       </div>
