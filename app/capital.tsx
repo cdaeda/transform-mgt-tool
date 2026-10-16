@@ -37,6 +37,7 @@ export function CapitalPanel({ version, ask }: { version: number; ask: (t: strin
   const [dial, setDial] = useState(8);
   const [focus, setFocus] = useState("");
   const [busy, setBusy] = useState("");
+  const [done, setDone] = useState("");
   const [err, setErr] = useState("");
   const [withPitching, setWithPitching] = useState(true);
   const [showRejected, setShowRejected] = useState(false);
@@ -49,10 +50,13 @@ export function CapitalPanel({ version, ask }: { version: number; ask: (t: strin
     refreshOverview();
   };
   const run = async (label: string, url: string, body?: unknown) => {
-    setBusy(label);
+    setBusy(`${label} · started ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. You can keep working on other tabs; results land on the board below.`);
     setErr("");
+    setDone("");
     const r = await fetch(url, { method: "POST", body: body ? JSON.stringify(body) : undefined }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
     if (r.error) setErr(r.error);
+    else if (Array.isArray(r)) setDone(`✓ Added ${r.length} strategies to the Ideas column below.`);
+    else if (typeof r.sized === "number") setDone(`✓ Sized ${r.sized} strateg${r.sized === 1 ? "y" : "ies"}.`);
     await load();
     refreshOverview();
     setBusy("");
@@ -87,13 +91,14 @@ export function CapitalPanel({ version, ask }: { version: number; ask: (t: strin
               aria-label="Focus" className="mt-2 w-full rounded-md border border-zinc-300 dark:border-zinc-700 p-1.5 text-sm" />
           </label>
           <div className="flex flex-col gap-2">
-            <button onClick={() => run("Designing strategies… (~2 min)", "/api/capital/generate", { aggressiveness: dial, focus })} disabled={!!busy}
+            <button onClick={() => run("Designing strategies… (about 3–4 min)", "/api/capital/generate", { aggressiveness: dial, focus })} disabled={!!busy}
               className="rounded-md px-4 py-2 text-sm font-bold bg-[var(--gold)] text-[var(--ink)] disabled:opacity-50">✨ Generate 6 strategies</button>
             {unsized > 0 && <button onClick={() => run("Sizing strategies… (~1 min)", "/api/capital/size")} disabled={!!busy} className="rounded-md px-3 py-1.5 text-sm border border-zinc-400">Size {unsized} unsized idea{unsized === 1 ? "" : "s"}</button>}
           </div>
         </div>
         {busy && <p className="text-sm text-zinc-500 animate-pulse">{busy}</p>}
         {err && <p className="text-sm text-red-600">{err}</p>}
+        {done && !busy && <p className="text-sm font-semibold text-green-700 dark:text-green-400">{done}</p>}
       </section>
 
       {/* the board: ideas -> pitching -> locked */}

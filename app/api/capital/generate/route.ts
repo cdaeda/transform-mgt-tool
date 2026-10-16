@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       model: "claude-opus-5-5",
       max_tokens: 32000,
       thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(z.object({ strategies: z.array(CapitalStrategy) })) },
+      output_config: { effort: "medium", format: zodOutputFormat(z.object({ strategies: z.array(CapitalStrategy) })) },
       system: await buildContext(),
       messages: [{
         role: "user",
