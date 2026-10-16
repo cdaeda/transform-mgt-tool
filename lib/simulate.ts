@@ -197,3 +197,32 @@ export function explain(rows: SimYear[]) {
     return { year: r.year, text: parts.length ? `vs the workbook: ${parts.join(", ")}` : "same as the workbook", warn };
   });
 }
+
+// The simulator's workbook baseline from the snapshot (lib/snapshot.ts); shared by the dashboard and the deck.
+type SnapLike = { seg: Record<number, number[]>; years: { costBase: number; interest: number; net: number; cash: number; shares: number }[]; units: number[][]; analysts?: number[][]; debt?: number };
+export function simBaseFrom(snap: SnapLike, now: number): Base {
+  return {
+    now, segRev: [68, 86, 104].map((r) => snap.seg[r] ?? []), segCost: [128, 146, 164].map((r) => snap.seg[r] ?? []),
+    costBase: snap.years.map((r) => r.costBase), interest: snap.years.map((r) => r.interest),
+    net: snap.years.map((r) => r.net), cash: snap.years.map((r) => r.cash),
+    units: snap.units, analysts: snap.analysts ?? [], shares: snap.years[now - 1]?.shares || 1e9, debt: snap.debt ?? 0,
+  };
+}
+
+// A capital infusion: new shares sold at a price in a given year, the cash funding the chosen cards.
+// Returns the plan with and without it, so the difference is what the investor's money does.
+export type Infusion = { amountM: number; price: number; year: number; toYear: number; cardIds: number[] };
+export type InfusionCard = { id: number; title: string; type: string; capex: number; start_year: number; revenue: number[]; cost: number[] };
+export function infusion(b: Base, inf: Infusion, cards: InfusionCard[]) {
+  const funded = cards.filter((c) => inf.cardIds.includes(c.id) && SEGS.includes(c.type.toLowerCase() as Seg));
+  const k = emptyKnobs(inf.toYear);
+  k.equity[inf.year - 1] = inf.amountM;
+  k.issuePrice = Math.max(0.01, inf.price);
+  k.cards = funded.map((c) => ({ label: c.title, type: c.type.toLowerCase() as Seg, startYear: Math.max(b.now, inf.year, c.start_year), revenue: c.revenue, cost: c.cost, capex: c.capex }));
+  const withIt = simulate(b, k), without = simulate(b, emptyKnobs(inf.toYear));
+  const spent = funded.reduce((s, c) => s + c.capex, 0);
+  return {
+    funded, spent, leftover: inf.amountM * 1e6 - spent, newShares: (inf.amountM * 1e6) / k.issuePrice,
+    rows: withIt.map((r, i) => ({ year: r.year, with: r, without: without[i], mcDelta: r.mc.total - without[i].mc.total, epsWith: r.net / r.shares, epsWithout: without[i].net / without[i].shares })),
+  };
+}

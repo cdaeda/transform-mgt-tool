@@ -1,6 +1,6 @@
 // node lib/simulate.check.ts - the simulator reproduces the workbook with no knobs, and each knob moves the right numbers.
 import assert from "node:assert/strict";
-import { emptyKnobs, simulate, type Base } from "./simulate.ts";
+import { emptyKnobs, infusion, simulate, type Base } from "./simulate.ts";
 
 const z = () => Array(10).fill(0);
 const b: Base = {
@@ -40,3 +40,11 @@ assert.equal(e[1].debt, 0);
 assert.ok(e[1].cash > 48e9 && e[1].cash < 49.1e9); // ~$49B in, less the lost Core profit and the repayment
 assert.equal(e[1].mc.cashTerm, 0); // all that cash counts for nothing while BMs + analysts are negative
 console.log("exit ok");
+
+// Infusion: $100M at $1 in Year 1 funding a $50M Explore card -> 100M new shares, $50M left, +1 Explore BM.
+const inf = infusion(b, { amountM: 100, price: 1, year: 1, toYear: 3, cardIds: [9] }, [{ id: 9, title: "4D", type: "Explore", capex: 50e6, start_year: 1, revenue: Array(10).fill(10e6), cost: Array(10).fill(2e6) }]);
+assert.equal(inf.newShares, 100e6);
+assert.equal(inf.leftover, 50e6);
+assert.equal(inf.rows[0].with.levers.explore, inf.rows[0].without.levers.explore + 1);
+assert.equal(inf.rows[0].with.shares, 1.1e9);
+console.log("infusion ok");

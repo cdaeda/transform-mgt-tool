@@ -7,7 +7,8 @@ import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
 import { listRounds } from "@/lib/rounds";
 import { getSnapshot } from "@/lib/snapshot";
-import { defaultOutlook, outlook, outlookBaseFrom, whyPriceSlide, type Outlook } from "@/lib/outlook";
+import { defaultOutlook, infusionSlide, outlook, outlookBaseFrom, whyPriceSlide, type Outlook } from "@/lib/outlook";
+import { simBaseFrom, type InfusionCard } from "@/lib/simulate";
 import { TOOL_SLIDES, type ToolShot } from "@/lib/tool-slides";
 import type { StrategyDocT } from "@/lib/strategy-doc";
 
@@ -43,7 +44,11 @@ export async function GET() {
 
   // The built-in "Why $60B" slide goes right after the acquisition slide.
   const why = out.saleYear ? whyPriceSlide(ol.rows, out) : null;
-  const all = deck.slides.flatMap((s) => (s.kind === "acquisition" && why ? [s, { ...why, speaker: s.speaker } as unknown as typeof s] : [s]));
+  const cards = await sql<InfusionCard[]>`select id, title, type, capex, start_year, revenue, cost from cards`;
+  const inf = infusionSlide(simBaseFrom(snap, st.current_year), out, cards.map((c) => ({ ...c, capex: Number(c.capex) })));
+  const all = deck.slides.flatMap((s) =>
+    s.kind === "acquisition" && why ? [s, { ...why, speaker: s.speaker } as unknown as typeof s]
+      : s.kind === "deliver" && inf ? [s, { ...inf, speaker: s.speaker } as unknown as typeof s] : [s]);
   all.forEach((s, k) => {
     const slide = pptx.addSlide();
     const secs = Math.round((s.notes.trim().split(/\s+/).length / 170) * 60);
@@ -61,7 +66,7 @@ export async function GET() {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
     slide.addText(s.kind.replace("_", " ").toUpperCase(), { x: 0.6, y: 0.35, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
     slide.addText(s.headline, { x: 0.6, y: 0.7, w: 12.1, h: 1.1, fontFace: FONT, fontSize: 28, color: INK, bold: true, valign: "top" });
-    const visual = ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask", "why_price"].includes(s.kind);
+    const visual = ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask", "why_price", "infusion"].includes(s.kind);
     slide.addText(s.bullets.map((b) => ({ text: b, options: { bullet: { code: "25B8" }, breakLine: true } })), {
       x: 0.6, y: 2.0, w: visual ? 5.6 : 12.1, h: 4.6, fontFace: FONT, fontSize: 17, color: INK, valign: "top", paraSpaceAfter: 10,
     });
@@ -92,6 +97,11 @@ export async function GET() {
         { label: "Net profit", v: y.net, color: HUE.H3 },
         { label: "Cash", v: y.cash, color: GOLD },
       ], 2.2);
+    if ((s.kind as string) === "infusion" && inf) {
+      // Market cap with the infusion each year, then the final year without it, for contrast.
+      const rows = inf.result.rows.slice(-4), last = rows[rows.length - 1];
+      bars([...rows.map((r) => ({ label: `Year ${r.year}`, v: r.with.mc.total * 1e6, color: GOLD })), { label: `Y${last.year} without`, v: last.without.mc.total * 1e6, color: "B8AFC9" }], 2.0);
+    }
     if (s.kind === "turnaround") {
       const yrs = Array.from({ length: Math.max(3, st.current_year + 1) }, (_, j) => j + 1);
       const cw = W / yrs.length;

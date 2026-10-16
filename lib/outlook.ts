@@ -33,6 +33,7 @@ export type Outlook = {
   buybackPct: number; // % of the net proceeds used to buy back shares
   costBaseKeptPct: number; // % of the cost base Terralink keeps after the sale
   bridge?: Bridge; // why the sale price: sum of the parts
+  infusion?: { amountM: number; price: number; year: number; toYear: number; cardIds: number[] }; // what new capital does
 };
 
 export type OutlookBase = {
@@ -178,5 +179,24 @@ export function whyPriceSlide(rows: ReturnType<typeof outlook>["rows"], o: Outlo
       b.gap > 0 ? `${m(b.gap)} still to argue: strategic value beyond the standalone parts` : `${m(-b.gap)} above the $${x.targetB}B ask`,
     ],
     bridge: b,
+  };
+}
+
+// The built-in "What your capital does" slide, after the deck's funding-plan (deliver) slide.
+import { infusion as runInfusion, type Base as SimBase, type InfusionCard } from "./simulate.ts";
+export function infusionSlide(sim: SimBase, o: Outlook, cards: InfusionCard[]) {
+  const inf = o.infusion;
+  if (!inf || inf.amountM <= 0) return null;
+  const r = runInfusion(sim, inf, cards), last = r.rows[r.rows.length - 1];
+  const m = (n: number) => (Math.abs(n) >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : `$${(n / 1e6).toFixed(0)}M`);
+  return {
+    kind: "infusion", notes: "", result: r,
+    headline: `$${inf.amountM}M of new capital takes us to ${m(last.with.mc.total * 1e6)} by Year ${last.year}`,
+    bullets: [
+      `$${inf.amountM}M at $${inf.price.toFixed(2)} a share in Year ${inf.year}: ${(r.newShares / 1e6).toFixed(0)}M new shares`,
+      r.funded.length ? `It funds ${r.funded.map((c) => c.title).join(", ")} (${m(r.spent)})${r.leftover > 0 ? ` and leaves ${m(r.leftover)} of cash` : ""}` : "It strengthens the balance sheet: cash counts ×100 toward market cap",
+      `Year ${last.year}: market cap ${m(last.with.mc.total * 1e6)} vs ${m(last.without.mc.total * 1e6)} without (${last.mcDelta >= 0 ? "+" : ""}${m(last.mcDelta * 1e6)})`,
+      `EPS ${last.epsWith.toFixed(2)} vs ${last.epsWithout.toFixed(2)} without · projections from our strategy and the workbook, not forecasts`,
+    ],
   };
 }

@@ -10,8 +10,8 @@ import { TOOL_SLIDES, type ToolShot, type ToolSlide } from "@/lib/tool-slides";
 import { ComebackChart, useRounds } from "./comeback";
 import { DragonMark } from "./dragon-mark";
 import { useOverview } from "./overview-store";
-import { Ladder, WhyPrice, useInvestorCase } from "./outlook";
-import { whyPriceSlide } from "@/lib/outlook";
+import { Infusion, Ladder, WhyPrice, useCards, useInvestorCase } from "./outlook";
+import { infusionSlide, whyPriceSlide } from "@/lib/outlook";
 
 type Year = { revenue: number; ebitda: number; net: number; cash: number };
 type Overview = {
@@ -81,6 +81,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
       </ol>
     );
   }
+  if (kind === "infusion" && ic?.sim) return <InfusionVisual />;
   if (kind === "why_price" && ic) return <WhyPrice rows={ic.run(ic.saved).rows} o={ic.saved} />;
   if ((kind === "earnings" || kind === "acquisition") && ic) {
     const { rows, roi } = ic.run(ic.saved);
@@ -159,6 +160,7 @@ const LINKS: Record<string, Jump[]> = {
   roadmap: [{ label: "Horizon tuner", hash: "dashboard", sel: '[aria-label="Horizon tuner"]' }, { label: "Strategy knob", hash: "finance/what-if", sel: '[aria-label="Strategy knob"]' }],
   deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/simulator", sel: '[aria-label="Simulator"]' }],
   earnings: [{ label: "Earnings outlook", hash: "capital/investor-case", sel: '[aria-label="Investor case"]' }],
+  infusion: [{ label: "What your capital does", hash: "capital/investor-case", sel: '[aria-label="What your capital does"]' }],
   why_price: [{ label: "Why the sale price", hash: "capital/investor-case", sel: '[aria-label="Why the sale price"]' }],
   acquisition: [{ label: "Investor case", hash: "capital/investor-case", sel: '[aria-label="From revenue to return"]' }, { label: "Exit scenario", hash: "finance/simulator", sel: '[aria-label="Exit scenario"]' }],
   ask: [{ label: "$50B goal path", hash: "dashboard", sel: '[aria-label*="B by Year"]' }, { label: "Borrowing plans", hash: "finance/borrowing", sel: '[aria-label="Borrowing plans"]' }, { label: "Comparable valuations", hash: "capital/comparables", sel: '[aria-label="Comparable valuations"]' }],
@@ -222,7 +224,11 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
   // The deck's own slides, plus the built-in "Why $60B" slide right after the acquisition slide.
   const icDeck = useInvestorCase(0);
   const why = icDeck && icDeck.saved.saleYear ? whyPriceSlide(icDeck.run(icDeck.saved).rows, icDeck.saved) : null;
-  const slides = (deck?.content.slides ?? []).flatMap((sl) => (sl.kind === "acquisition" && why ? [sl, { ...why, speaker: sl.speaker } as unknown as typeof sl] : [sl]));
+  const deckCards = useCards();
+  const inf = icDeck?.sim ? infusionSlide(icDeck.sim, icDeck.saved, deckCards) : null;
+  const slides = (deck?.content.slides ?? []).flatMap((sl) =>
+    sl.kind === "acquisition" && why ? [sl, { ...why, speaker: sl.speaker } as unknown as typeof sl]
+      : sl.kind === "deliver" && inf ? [sl, { ...inf, speaker: sl.speaker } as unknown as typeof sl] : [sl]);
   const count = slides.length ? slides.length + TOOL_SLIDES.length : 0; // appendix: how we use the tool
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -292,7 +298,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind.replace("_", " ")}</p>
                     <h2 className="text-3xl sm:text-4xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  <div className={`grid gap-8 items-center ${data && ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : (sl.kind as string) === "why_price" ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
+                  <div className={`grid gap-8 items-center ${data && ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ["why_price", "infusion"].includes(sl.kind as string) ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
                     <ul className="space-y-3 text-xl">
                       {sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}
                     </ul>
@@ -364,4 +370,11 @@ function ToolSlideView({ t, k, n }: { t: ToolSlide; k: number; n: number }) {
       </footer>
     </section>
   );
+}
+
+// The infusion slide's visual: the same table as Capital > Investor case, read-only.
+function InfusionVisual() {
+  const ic = useInvestorCase(0), cards = useCards();
+  if (!ic?.sim) return null;
+  return <Infusion sim={ic.sim} o={ic.saved} cards={cards} />;
 }

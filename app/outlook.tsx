@@ -3,8 +3,9 @@
 import { DIVIDEND_PRESETS, NEW_NAME, bridge, defaultBridge, defaultOutlook, outlook, type Bridge, type Outlook, type OutlookBase, type OutlookRow } from "@/lib/outlook";
 import { useEffect, useState } from "react";
 import { refreshOverview, useOverview } from "./overview-store";
+import { infusion, type Base as SimBase, type InfusionCard } from "@/lib/simulate";
 
-type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] } };
+type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] }; sim?: SimBase };
 type Roi = ReturnType<typeof outlook>["roi"];
 
 const money = (n: number) => {
@@ -19,7 +20,7 @@ export function useInvestorCase(version: number) {
   const d = o?.data?.outlookBase ? o.data : null;
   if (!d) return null;
   const saved: Outlook = { ...defaultOutlook(d.year, d.goal.year), ...(d.outlook ?? {}) };
-  return { base: d.outlookBase, game: d.certificate?.caps ?? [], saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
+  return { sim: d.sim ?? null, base: d.outlookBase, game: d.certificate?.caps ?? [], saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
 }
 
 // Top-down, step by step: what we earn, what the market pays for it, and what a shareholder gets.
@@ -107,6 +108,79 @@ export function WhyPrice({ rows, o, onChange }: { rows: OutlookRow[]; o: Outlook
   );
 }
 
+// What an investor's money does: new shares at a price, the cash funding chosen cards, and the projected
+// market cap and EPS with and without it (same simulator as Finance). Also the deck slide.
+export function useCards() {
+  const [cards, setCards] = useState<(InfusionCard & { status: string })[]>([]);
+  useEffect(() => void fetch("/api/cards").then((r) => r.json()).then((x) => Array.isArray(x) && setCards(x), () => {}), []);
+  return cards;
+}
+export function Infusion({ sim, o, cards, onChange }: { sim: SimBase; o: Outlook; cards: (InfusionCard & { status: string })[]; onChange?: (inf: NonNullable<Outlook["infusion"]>) => void }) {
+  const inf = o.infusion ?? { amountM: 0, price: o.entryPrice, year: sim.now, toYear: Math.max(o.toYear, sim.now + 2), cardIds: [] };
+  const set = (p: Partial<typeof inf>) => onChange?.({ ...inf, ...p });
+  const r = infusion(sim, inf, cards);
+  const last = r.rows[r.rows.length - 1];
+  const choosable = cards.filter((c) => ["Core", "Growth", "Explore"].includes(c.type) && c.status !== "booked" && c.status !== "passed");
+  const dil = (r.newShares / (sim.shares + r.newShares)) * 100;
+  const capM = (n: number) => money(n * 1e6);
+  const num = (v: number, f: (n: number) => void, label: string, step = 1, w = "w-20") => (
+    <input type="number" step={step} value={v} aria-label={label} onChange={(e) => f(Number(e.target.value) || 0)}
+      className={`${w} rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1 py-0.5 text-right tabular-nums text-sm`} />
+  );
+  return (
+    <section className="rounded-lg bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 p-3 space-y-3" aria-label="What your capital does">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-lg">What a capital infusion does</h3>
+        {inf.amountM > 0 && <p className="text-sm font-semibold">${inf.amountM}M at ${inf.price.toFixed(2)} a share → market cap {capM(last.with.mc.total)} in Year {last.year} ({last.mcDelta >= 0 ? "+" : ""}{capM(last.mcDelta)} vs without)</p>}
+      </div>
+      {onChange && (
+        <div className="flex flex-wrap gap-x-4 gap-y-2 items-center text-sm">
+          <label className="flex items-center gap-1.5">Raise ${num(inf.amountM, (n) => set({ amountM: n }), "Infusion amount", 25)}M</label>
+          <label className="flex items-center gap-1.5">at ${num(inf.price, (n) => set({ price: n }), "Price per share", 0.1, "w-16")} a share</label>
+          <label className="flex items-center gap-1.5">in
+            <select value={inf.year} onChange={(e) => set({ year: +e.target.value })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1">
+              {Array.from({ length: 10 - sim.now + 1 }, (_, j) => sim.now + j).map((y) => <option key={y} value={y}>Year {y}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5">play to
+            <select value={inf.toYear} onChange={(e) => set({ toYear: +e.target.value })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1">
+              {Array.from({ length: 10 - inf.year }, (_, j) => inf.year + 1 + j).map((y) => <option key={y} value={y}>Year {y}</option>)}
+            </select>
+          </label>
+          {choosable.length > 0 && (
+            <span className="basis-full flex flex-wrap gap-2 items-center">
+              <span className="text-zinc-500">It funds:</span>
+              {choosable.map((c) => (
+                <label key={c.id} className="flex items-center gap-1 rounded-full border border-zinc-300 dark:border-zinc-700 px-2 py-0.5">
+                  <input type="checkbox" checked={inf.cardIds.includes(c.id)} onChange={(e) => set({ cardIds: e.target.checked ? [...inf.cardIds, c.id] : inf.cardIds.filter((x) => x !== c.id) })} />
+                  {c.title} <span className="text-xs text-zinc-500">cap.ex {money(c.capex)}</span>
+                </label>
+              ))}
+              {inf.cardIds.length > 0 && <button onClick={() => set({ amountM: Math.round(r.spent / 1e6) })} className="text-xs underline">raise exactly what they cost ({money(r.spent)})</button>}
+            </span>
+          )}
+        </div>
+      )}
+      {inf.amountM > 0 ? (
+        <>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{(r.newShares / 1e6).toFixed(0)}M new shares ({dil.toFixed(0)}% dilution). {r.funded.length ? `Funds ${r.funded.map((c) => c.title).join(", ")} (${money(r.spent)})` : "Funds no card yet"}{r.leftover > 0 ? `; ${money(r.leftover)} stays as cash` : r.leftover < 0 ? `; ${money(-r.leftover)} short of what they cost` : ""}. Cash counts ×100 toward market cap, up to business models + ratings.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[32rem]">
+              <thead><tr><th />{r.rows.map((x) => <th key={x.year} className="eyebrow text-zinc-500 px-2 text-right">Year {x.year}</th>)}</tr></thead>
+              <tbody>
+                {([["Market cap, with the infusion", (x: (typeof r.rows)[number]) => capM(x.with.mc.total)], ["Market cap, without", (x: (typeof r.rows)[number]) => capM(x.without.mc.total)], ["Difference", (x: (typeof r.rows)[number]) => `${x.mcDelta >= 0 ? "+" : ""}${capM(x.mcDelta)}`],
+                  ["EPS with / without", (x: (typeof r.rows)[number]) => `${ps(x.epsWith)} / ${ps(x.epsWithout)}`], ["Cash with the infusion", (x: (typeof r.rows)[number]) => money(x.with.cash)]] as const).map(([l, f]) => (
+                  <tr key={l} className="border-t border-zinc-200 dark:border-zinc-800"><th scope="row" className="text-left font-normal py-1 pr-3 whitespace-nowrap">{l}</th>{r.rows.map((x) => <td key={x.year} className="px-2 text-right tabular-nums">{f(x)}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <p className="text-sm text-zinc-500">Set an amount{onChange ? " (and tick the cards it funds)" : ""} to see what it does.</p>}
+    </section>
+  );
+}
+
 // What the company is worth each year, and what that value is made of.
 export function ValuationPath({ rows, o, game }: { rows: OutlookRow[]; o: Outlook; game: number[] }) {
   const sale = o.saleYear ? o.salePriceB * 1e9 : 0;
@@ -148,6 +222,7 @@ export function ValuationPath({ rows, o, game }: { rows: OutlookRow[]; o: Outloo
 
 export function InvestorCase({ version, ask }: { version: number; ask: (t: string) => void }) {
   const ic = useInvestorCase(version);
+  const cards = useCards();
   const [edit, setEdit] = useState<Outlook | null>(null);
   const [msg, setMsg] = useState("");
   if (!ic) return <div className="game-card h-64 animate-pulse" aria-busy="true" />;
@@ -196,6 +271,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       </div>
 
       <ValuationPath rows={rows} o={o} game={ic.game} />
+      {ic.sim && <Infusion sim={ic.sim} o={o} cards={cards} onChange={(inf) => set({ infusion: inf })} />}
       {o.saleYear > 0 && <WhyPrice rows={rows} o={o} onChange={(b) => set({ bridge: b })} />}
       <Ladder r={last} roi={roi} o={o} />
       {sale && (
