@@ -4,7 +4,15 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { Markdown } from "./markdown";
 
 export type Chip = { label: string; mode: "evaluate_card" | "chat" | "create_tasks"; prompt: string };
-export type Msg = { role: "user" | "assistant"; content: string; image?: string; chips?: Chip[]; note?: boolean };
+type Proposal = { kind: string; summary: string; [k: string]: unknown };
+type Decided = Proposal & { state?: "accepted" | "rejected" | "error"; info?: string };
+export type Msg = {
+  role: "user" | "assistant"; content: string; image?: string; chips?: Chip[]; note?: boolean;
+  proposals?: Decided[]; choices?: { question: string; options: string[] }[];
+};
+export type ActTask = { id: number; role: string; title: string; detail: string; due: string };
+const KIND: Record<string, string> = { workbook: "Workbook", strategy: "Strategy", task: "New task", task_status: "Task status", card: "Card", financing: "Financing", knowledge: "Remember" };
+const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()));
 export type Seed = { title: string; image?: string; text?: string; opening: string; chips: Chip[] };
 
 const PITCH_PROMPT =
@@ -19,7 +27,8 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 
 // The CFO copilot. Threads can start from the capture modal (photo or text) with option chips;
 // any action taken is turned into tasks for every role.
-export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
+export function Copilot({ onReply, askRef, threadRef, noteRef, actRef, onTasks }: {
+  actRef: RefObject<(task: ActTask) => void>;
   onReply: () => void;
   askRef: RefObject<(text: string) => void>;
   threadRef: RefObject<(seed: Seed) => void>;
@@ -28,6 +37,8 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [title, setTitle] = useState("");
+  // The id is minted on first send (never during render), so prerendering stays deterministic.
+  const [thread, setThread] = useState<{ id: string; mode: "chat" | "act"; taskId: number | null }>({ id: "", mode: "chat", taskId: null });
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -50,16 +61,21 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
     setBusy("");
   }
 
-  async function send(text: string, base = msgs) {
+  async function send(text: string, base = msgs, threadOverride?: typeof thread, titleOverride?: string) {
     if (!text.trim() || busy) return base;
     const next: Msg[] = [...base, { role: "user", content: text }];
     setMsgs(next);
     setInput("");
     setBusy("Thinking & checking the workbook…");
     const payload = next.filter((m) => !m.note).map(({ role, content, image }) => ({ role, content, image }));
-    const r = await fetch("/api/chat", { method: "POST", body: JSON.stringify({ messages: payload }) });
-    const { text: reply } = await r.json();
-    const done: Msg[] = [...next, { role: "assistant", content: reply }];
+    let t = threadOverride ?? thread;
+    if (!t.id) {
+      t = { ...t, id: newId() };
+      setThread(t);
+    }
+    const r = await fetch("/api/chat", { method: "POST", body: JSON.stringify({ messages: payload, mode: t.mode, threadId: t.id, taskId: t.taskId, title: titleOverride ?? title }) });
+    const { text: reply, proposals = [], choices = [] } = await r.json();
+    const done: Msg[] = [...next, { role: "assistant", content: reply, proposals, choices }];
     setMsgs(done);
     setBusy("");
     onReply(); // the copilot may have written cells
@@ -93,13 +109,33 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
     }
   }
 
+  // Accept / reject one proposal; every decision lands in organizational memory.
+  async function decide(mi: number, pi: number, decision: "accept" | "reject") {
+    const p = msgs[mi].proposals![pi];
+    const note = decision === "reject" ? prompt("Why reject it? (optional — the copilot learns from this)") ?? "" : "";
+    const r = await fetch("/api/proposals", { method: "POST", body: JSON.stringify({ proposal: p, decision, note, source: title || "copilot" }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+    const state: Decided["state"] = r.error ? "error" : decision === "accept" ? "accepted" : "rejected";
+    setMsgs((all) => all.map((m, i) => (i !== mi ? m : { ...m, proposals: m.proposals!.map((q, j) => (j !== pi ? q : { ...q, state, info: r.error ?? r.detail })) })));
+    if (r.error || decision !== "accept") return;
+    onReply();
+    if (["task", "task_status"].includes(p.kind)) onTasks();
+  }
+
   useEffect(() => {
     askRef.current = (t: string) => void send(t); // panels hand questions to the copilot
+    actRef.current = (task: ActTask) => {
+      const t = { id: newId(), mode: "act" as const, taskId: task.id };
+      setThread(t);
+      setTitle(task.title);
+      setMsgs([]);
+      void send(`Let's act on task #${task.id} for the ${task.role}: "${task.title}". ${task.detail}${task.due ? ` Due: ${task.due}.` : ""} Help me get it done.`, [], t, task.title);
+    };
     noteRef.current = (text: string) => {
       setMsgs((m) => [...m, { role: "assistant", note: true, content: text }]);
       onReply();
     };
     threadRef.current = (s: Seed) => {
+      setThread({ id: "", mode: "chat", taskId: null });
       setTitle(s.title);
       setMsgs([
         { role: "user", content: s.text || (s.image ? "(photo)" : ""), image: s.image },
@@ -112,8 +148,8 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
     <div className="flex flex-col h-full gap-2">
       {title && (
         <div className="flex items-center justify-between gap-2">
-          <p className="eyebrow text-zinc-500 truncate">Thread · {title}</p>
-          <button onClick={() => (setMsgs([]), setTitle(""))} className="text-xs underline shrink-0">New chat</button>
+          <p className="eyebrow text-zinc-500 truncate">{thread.mode === "act" ? "⚡ Working task" : "Thread"} · {title}</p>
+          <button onClick={() => (setMsgs([]), setTitle(""), setThread({ id: "", mode: "chat", taskId: null }))} className="text-xs underline shrink-0">New chat</button>
         </div>
       )}
       <div className="flex-1 overflow-y-auto space-y-3 text-sm">
@@ -135,6 +171,37 @@ export function Copilot({ onReply, askRef, threadRef, noteRef, onTasks }: {
                     {c.mode === "create_tasks" ? "📋 " : c.mode === "evaluate_card" ? "🃏 " : "💬 "}{c.label}
                   </button>
                 ))}
+              </div>
+            )}
+            {m.choices?.map((c, ci) => (
+              <div key={ci} className="mt-2">
+                <p className="font-semibold">{c.question}</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {c.options.map((op) => (
+                    <button key={op} onClick={() => send(op)} disabled={!!busy || i !== msgs.length - 1}
+                      className="rounded-full px-3 py-1 text-xs font-semibold border border-indigo-900 text-indigo-900 dark:border-indigo-300 dark:text-indigo-200 disabled:opacity-40">{op}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {m.proposals && m.proposals.length > 0 && (
+              <div className="mt-2 space-y-1.5" aria-label="Proposed changes">
+                {m.proposals.map((p, pi) => (
+                  <div key={pi} className={`rounded-md border p-2 ${p.state === "accepted" ? "border-green-700 bg-green-50 dark:bg-green-950/30" : p.state === "rejected" ? "border-zinc-300 opacity-60" : p.state === "error" ? "border-red-500" : "border-amber-500 bg-white dark:bg-zinc-900"}`}>
+                    <p className="text-xs"><span className="chip !bg-indigo-900 mr-1">{KIND[p.kind] ?? p.kind}</span>{p.summary}</p>
+                    {p.kind === "workbook" && <p className="text-xs text-zinc-500 mt-0.5">{String(p.range)} → {JSON.stringify(p.values)}</p>}
+                    {p.kind === "task" && <p className="text-xs text-zinc-500 mt-0.5">{String(p.role)}: {String(p.title)}</p>}
+                    {!p.state ? (
+                      <div className="flex gap-1.5 mt-1">
+                        <button onClick={() => decide(i, pi, "accept")} className="rounded px-2 py-0.5 text-xs font-semibold bg-green-700 text-white">✓ Accept</button>
+                        <button onClick={() => decide(i, pi, "reject")} className="rounded px-2 py-0.5 text-xs border border-zinc-400">✕ Reject</button>
+                      </div>
+                    ) : <p className="text-xs mt-1">{p.state === "accepted" ? `✓ Accepted${p.info ?? ""}` : p.state === "rejected" ? "✕ Rejected — noted" : `⚠ ${p.info}`}</p>}
+                  </div>
+                ))}
+                {m.proposals.filter((p) => !p.state).length > 1 && (
+                  <button onClick={async () => { for (let pi = 0; pi < m.proposals!.length; pi++) if (!m.proposals![pi].state) await decide(i, pi, "accept"); }} className="text-xs underline">Accept all</button>
+                )}
               </div>
             )}
             {m.role === "assistant" && !m.note && !m.chips && i === msgs.length - 1 && !busy && (

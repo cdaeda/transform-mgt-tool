@@ -58,7 +58,7 @@ type Task = { id: number; created_at: string; role: RoleId; title: string; detai
 const COLS = [{ id: "todo", label: "To do" }, { id: "doing", label: "Doing" }, { id: "done", label: "Done" }] as const;
 const roleName = (id: string) => ROLES.find((r) => r.id === id)?.name ?? "";
 
-export function TasksPanel({ version }: { version: number }) {
+export function TasksPanel({ version, onAct }: { version: number; onAct: (t: Task) => void }) {
   const me = useMyRole();
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [all, setAll] = useState(false);
@@ -123,6 +123,9 @@ export function TasksPanel({ version }: { version: number }) {
                         {t.due && <span>⏱ {t.due}</span>}
                         <span className="ml-auto flex gap-1">
                           {i > 0 && <button onClick={() => move(t, COLS[i - 1].id)} className="rounded border border-zinc-300 px-1.5" aria-label={`Move to ${COLS[i - 1].label}`}>←</button>}
+                          {t.status !== "done" && (
+                            <button onClick={() => (t.status === "todo" && move(t, "doing"), onAct(t))} className="rounded bg-amber-500 text-[var(--ink)] font-semibold px-1.5" title="Work this task with the copilot" aria-label={`Act on: ${t.title}`}>⚡ Act</button>
+                          )}
                           {i < 2 && <button onClick={() => move(t, COLS[i + 1].id)} className="rounded border border-zinc-300 px-1.5" aria-label={`Move to ${COLS[i + 1].label}`}>→</button>}
                         </span>
                       </div>

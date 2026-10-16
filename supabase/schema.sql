@@ -166,3 +166,33 @@ create table if not exists rolls (
   booked boolean not null default false
 );
 alter table rolls enable row level security;
+
+-- Presentation decks (e.g. Annual Shareholder Meeting & Analyst Day), latest per event wins.
+create table if not exists decks (
+  id bigint primary key generated always as identity,
+  created_at timestamptz not null default now(),
+  event text not null,
+  content jsonb not null
+);
+alter table decks enable row level security;
+
+-- Organizational memory: accepted/rejected decisions, insights and task results Claude reads on every
+-- request; plus full copilot transcripts.
+create table if not exists knowledge (
+  id bigint primary key generated always as identity,
+  created_at timestamptz not null default now(),
+  kind text not null check (kind in ('decision', 'insight', 'result')),
+  text text not null,
+  source text not null default '',
+  role text not null default ''
+);
+create table if not exists threads (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  title text not null default '',
+  task_id bigint,
+  messages jsonb not null default '[]'
+);
+alter table knowledge enable row level security;
+alter table threads enable row level security;

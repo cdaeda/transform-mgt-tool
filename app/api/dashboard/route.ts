@@ -98,6 +98,15 @@ export async function GET() {
       knob: { value: st.knob, target: { h1: st.h1_pct, h2: st.h2_pct, h3: st.h3_pct }, actual: { spend, total, pct: { h1: pct(spend.h1), h2: pct(spend.h2), h3: pct(spend.h3) } } },
       strategyUpdated: st.updated_at,
       teams: snap.teams,
+      plan: {
+        units: { core: units[0], growth: units[1], explore: units[2] },
+        analysts: (snap.analysts ?? []).map((r) => r[i] ?? 0),
+        cashForCap: snap.cashUnits?.[i] ?? 0,
+        cash: now.cash, shares: now.shares || 1e9,
+        revenue: now.revenue + now.oneTime, expenses: now.bmCost + now.costBase + now.interest,
+        bmProfit10y: [187, 205, 223].reduce((s, r) => s + (snap.seg[r] ?? []).reduce((a, b) => a + b, 0), 0),
+        revenue10y: [68, 86, 104].reduce((s, r) => s + (snap.seg[r] ?? []).reduce((a, b) => a + b, 0), 0),
+      },
     });
   } catch (e) {
     console.error(e);

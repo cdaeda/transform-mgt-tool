@@ -141,6 +141,7 @@ export function InvestorRelationsPanel({ ask, version }: { ask: (t: string) => v
       <div className="flex items-baseline justify-between flex-wrap gap-2">
         <h2 className="text-xl">Investor relations</h2>
         <div className="flex gap-2 flex-wrap">
+          <a href="/deck" className={`${btn} bg-indigo-900 text-white`}>▶ Shareholder Day deck</a>
           <button onClick={() => ask("Draft our equity story for investors in 150 words: Dragon Drive, the three horizons, how we pay for it, and what turns our analyst ratings around. Use live numbers; [placeholders] where unconfirmed.")} className={`${btn} bg-amber-600 text-white`}>Draft our equity story</button>
           <button onClick={() => ask("Which analyst cards are hurting our market cap this year, and the fastest legitimate moves (board squares, Management Events, cards) to earn Buy or Outperform ratings? Rank them.")} className={`${btn} border border-zinc-400`}>How do we fix our ratings?</button>
         </div>

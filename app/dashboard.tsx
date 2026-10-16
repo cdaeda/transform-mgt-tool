@@ -4,6 +4,7 @@ import { useState } from "react";
 import { refreshOverview, useOverview } from "./overview-store";
 import { HorizonKnob } from "./knob";
 import { StrategyCard } from "./strategy-card";
+import { MarketCapThermometer } from "./thermometer";
 
 type Status = "on-track" | "at-risk" | "off-track" | "no-target";
 type Fact = { label: string; value: number | null; unit: "$" | "#" | "x"; extra?: number };
@@ -19,6 +20,7 @@ type Dash = {
   health: { unpushed: number; workbookUpdated: string | null; lastAudit: { verdict: string; summary: string; created_at: string } | null };
   targets: { h1: number | null; h2: number | null; h3: number | null; h3_partners: number };
   knob: { value: number; target: { h1: number; h2: number; h3: number }; actual: { pct: { h1: number; h2: number; h3: number }; spend: { h1: number; h2: number; h3: number }; total: number } };
+  plan: { units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number; cash: number };
 };
 
 const money = (n: number) => {
@@ -117,7 +119,7 @@ function HorizonCard({ h, onTarget, partners, onPartners }: { h: Horizon; onTarg
   );
 }
 
-export function DashboardPanel({ version, onChanged, onTune }: { version: number; onChanged: () => void; onTune: () => void }) {
+export function DashboardPanel({ version, onChanged, onTune, onPlan }: { version: number; onChanged: () => void; onTune: () => void; onPlan: () => void }) {
   const o = useOverview<Dash>(version);
   const d = o?.data?.horizons ? o.data : null;
   const err = d ? "" : o?.error ?? "";
@@ -142,6 +144,7 @@ export function DashboardPanel({ version, onChanged, onTune }: { version: number
 
   return (
     <div className="space-y-5">
+      {d.plan && <MarketCapThermometer year={d.year} units={d.plan.units} analysts={d.plan.analysts} cashForCap={d.plan.cashForCap} cash={d.plan.cash} onPlan={onPlan} />}
       <StrategyCard version={version} />
       <div className="flex items-baseline justify-between flex-wrap gap-2">
         <h2 className="text-2xl">Year {d.year} scorecard</h2>

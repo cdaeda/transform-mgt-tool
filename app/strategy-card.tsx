@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Strategy } from "@/lib/db";
 import type { StrategyDocT } from "@/lib/strategy-doc";
+import { Flywheel, FundingFlow, HorizonCurves, ValuationEquation } from "./strategy-graphics";
 
 const HUE = { H1: "var(--core)", H2: "var(--growth)", H3: "var(--explore)" } as const;
 const btn = "rounded-md px-3 py-1.5 text-sm font-semibold shadow-sm disabled:opacity-50";
@@ -112,9 +113,11 @@ export function StrategyCard({ version }: { version: number }) {
           <Reveal root={panel}><div className="space-y-3 max-w-4xl">
             {d.executive_summary.map((p, i) => <p key={i}>{p}</p>)}
           </div></Reveal>
+          <Reveal root={panel}><Flywheel /></Reveal>
 
           <div>
             <h3 className="text-xl mb-3">Roadmap · how we get there</h3>
+            <Reveal root={panel}><HorizonCurves when={Object.fromEntries(d.roadmap.map((r) => [r.horizon, r.when.replace(/\s*\(proposed\)/i, "")]))} /></Reveal>
             <ol className="relative">
               {d.roadmap.map((r, i) => (
                 <Reveal key={r.horizon} root={panel}><li className="relative grid grid-cols-[2.5rem_1fr] sm:grid-cols-[8rem_2.5rem_1fr] gap-x-3 pb-8 last:pb-0">
@@ -153,6 +156,8 @@ export function StrategyCard({ version }: { version: number }) {
               <h3 className="text-xl">{s.heading}</h3>
               {s.paragraphs.map((p, i) => <p key={i}>{p}</p>)}
               {s.bullets.length > 0 && <ul className="list-disc ml-5 space-y-0.5">{s.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul>}
+              {/financial position/i.test(s.heading) && <ValuationEquation />}
+              {/capital plan|pay for/i.test(s.heading) && <FundingFlow />}
             </section></Reveal>
           ))}
           <Reveal root={panel}><div className="grid gap-4 md:grid-cols-2 max-w-5xl">

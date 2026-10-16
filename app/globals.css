@@ -160,7 +160,18 @@ body {
 .file-tab[aria-current="page"] {
   background: var(--surface);
   color: var(--foreground);
+  border: 1px solid var(--frame);
+  border-bottom-color: var(--surface); /* joins the panel below */
   box-shadow: inset 0 3px 0 var(--gold);
+}
+.file-tab { border: 1px solid transparent; margin-bottom: -1px; }
+/* The panel under the tabs: one plain border the active tab merges into. */
+.tab-panel {
+  background: var(--surface);
+  border: 1px solid var(--frame);
+  border-radius: 0 10px 10px 10px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px -16px rgb(30 11 46 / 0.35);
 }
 
 /* Card-type chips in the game's colours. */

@@ -24,6 +24,10 @@ export const cardLine = (c: Card) =>
 // Any part that can't be loaded is reported as unavailable instead of failing the request.
 export async function buildContext() {
   const state = await loadState().catch((e) => e as Error);
+  const memory = await sql<{ kind: string; text: string; role: string; created_at: Date }[]>`
+    select kind, text, role, created_at from knowledge order by created_at desc limit 60`
+    .then((rows) => rows.map((k) => `- [${k.kind}${k.role ? ` · ${k.role}` : ""} · ${k.created_at.toISOString().slice(0, 10)}] ${k.text}`).join("\n"))
+    .catch(() => "");
   const cap = await readRange("O34:O43")
     .then((r) => `MARKET CAP from the workbook ($M, Years 1-10, col O): ${r.values.map((v, i) => `Y${i + 1} ${v[0] ?? 0}`).join(", ")}`)
     .catch(() => "MARKET CAP: (workbook unavailable)");
@@ -73,6 +77,10 @@ ${ours}
 
 ${cap}
 ${changed}
+
+ORGANIZATIONAL MEMORY - what the team decided, rejected and learned (newest first). Build on it; don't
+re-propose what was rejected unless something changed, and say so when you do:
+${memory || "(nothing yet)"}
 
 LIVE SHEET SNAPSHOT ('Team 1' summary + market cap block, leaderboard):
 ${sheet}`;

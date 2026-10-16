@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { col2n, freeRow, n2col } from "@/lib/impact";
 const freeRowIndex = (rows: Cell[][]) => { const r = freeRow(0, rows); return r === null ? -1 : r; };
 import { CaptureModal } from "./capture";
-import { Copilot, type Seed } from "./copilot";
+import { Copilot, type ActTask, type Seed } from "./copilot";
 import { DashboardPanel } from "./dashboard";
 import { RolePicker, TasksPanel, useMyRole } from "./tasks";
 import { InnovationPanel, InvestorRelationsPanel, RivalFinances } from "./finance-areas";
+import { PathTo50B } from "./path50";
 import { refreshOverview } from "./overview-store";
 import { StrategyCard } from "./strategy-card";
 import { FinancesPanel } from "./finances";
@@ -181,7 +182,7 @@ function AddRowButton({ spec, onDone }: { spec: AddRow; onDone: () => void }) {
 }
 
 const TABS = ["Dashboard", "Tasks", "Cards", "Finance", "Teams", "Workbook"] as const;
-const FINANCE_AREAS = ["What-if", "Financing", "Strategy", "Innovation", "Investor relations"] as const;
+const FINANCE_AREAS = ["Path to $50B", "What-if", "Financing", "Strategy", "Innovation", "Investor relations"] as const;
 
 // The open tab lives in the URL hash (#finances), so links, refresh and the back button work.
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -191,12 +192,13 @@ const goTo = (t: string) => {
 const onHash = (cb: () => void) => (window.addEventListener("hashchange", cb), () => window.removeEventListener("hashchange", cb));
 // #finance/investor-relations -> tab "Finance", area "Investor relations"
 const tabFromHash = () => TABS.find((t) => window.location.hash.split("/")[0] === `#${slug(t)}`) ?? "Dashboard";
-const areaFromHash = () => FINANCE_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "What-if";
+const areaFromHash = () => FINANCE_AREAS.find((a) => window.location.hash.split("/")[1] === slug(a)) ?? "Path to $50B";
 
 export default function Home() {
   const askRef = useRef<(text: string) => void>(() => {});
   const threadRef = useRef<(seed: Seed) => void>(() => {});
   const noteRef = useRef<(text: string) => void>(() => {});
+  const actRef = useRef<(task: ActTask) => void>(() => {});
   const [captureOpen, setCaptureOpen] = useState(false);
   const role = useMyRole();
   const cfo = role === "CFO";
@@ -205,7 +207,13 @@ export default function Home() {
   const [rolePicker, setRolePicker] = useState(false);
   const tab = useSyncExternalStore(onHash, tabFromHash, () => "Dashboard" as const);
   const setTab = (t: (typeof TABS)[number]) => goTo(t);
-  const area = useSyncExternalStore(onHash, areaFromHash, () => "What-if" as const);
+  const area = useSyncExternalStore(onHash, areaFromHash, () => "Path to $50B" as const);
+  const makeTasks = (context: string) => {
+    noteRef.current("📋 Creating tasks for each role…");
+    fetch("/api/tasks/plan", { method: "POST", body: JSON.stringify({ context, source: "Path to $50B" }) })
+      .then((r) => r.json())
+      .then((t) => (noteRef.current(Array.isArray(t) ? `📋 ${t.length} tasks created — see the Tasks tab.` : `Couldn't create tasks: ${t.error}`), bump()));
+  };
   const setArea = (a: (typeof FINANCE_AREAS)[number]) => goTo(`finance/${slug(a)}`);
   const [version, setVersion] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
@@ -255,14 +263,14 @@ export default function Home() {
       <div className="flex flex-col lg:flex-row flex-1">
         <main className="flex-1 min-w-0 p-3 sm:p-4 space-y-4 pb-20 lg:pb-4">
           <MarketCapBar version={version} />
-          <nav className="flex gap-1 overflow-x-auto whitespace-nowrap relative z-10" aria-label="Sections">
+          <nav className="flex gap-1 overflow-x-auto whitespace-nowrap items-end relative z-10" aria-label="Sections">
             {TABS.map((t) => (
               <button key={t} onClick={() => setTab(t)} aria-current={tab === t ? "page" : undefined} className="file-tab">{t}</button>
             ))}
           </nav>
-          <div className="game-card space-y-4 rounded-tl-none">
-            {tab === "Dashboard" && <DashboardPanel version={version} onChanged={bump} onTune={() => setArea("What-if")} />}
-            {tab === "Tasks" && <TasksPanel version={version} />}
+          <div className="tab-panel space-y-4">
+            {tab === "Dashboard" && <DashboardPanel version={version} onChanged={bump} onTune={() => setArea("What-if")} onPlan={() => setArea("Path to $50B")} />}
+            {tab === "Tasks" && <TasksPanel version={version} onAct={(t) => (setChatOpen(true), actRef.current(t))} />}
             {tab === "Cards" && <CardsPanel ask={ask} onBooked={bump} cfo={cfo} />}
             {tab === "Finance" && (<>
               <nav className="flex gap-1 overflow-x-auto whitespace-nowrap -mt-1" aria-label="Finance areas">
@@ -271,6 +279,7 @@ export default function Home() {
                     className={`rounded-full px-3 py-1 text-sm font-semibold ${area === a ? "bg-indigo-900 text-white" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}>{a}</button>
                 ))}
               </nav>
+              {area === "Path to $50B" && <PathTo50B version={version} ask={ask} makeTasks={makeTasks} />}
               {area === "What-if" && (<><EditToggle cfo={cfo} on={editMode} set={setEditMode} /><FinancesPanel version={version} onApplied={bump} editable={editing} cfo={cfo} /></>)}
               {area === "Financing" && <FinancingPanel ask={ask} />}
               {area === "Strategy" && (<><StrategyCard version={version} /><AmbitionPanel onYear={bump} /></>)}
@@ -305,7 +314,7 @@ export default function Home() {
               <h2 className="text-lg">CFO copilot</h2>
               <button onClick={() => setChatOpen(false)} className="lg:hidden rounded-md border border-zinc-300 px-3 py-1 text-sm">Close</button>
             </div>
-            <div className="flex-1 min-h-0"><Copilot onReply={bump} askRef={askRef} threadRef={threadRef} noteRef={noteRef} onTasks={bump} /></div>
+            <div className="flex-1 min-h-0"><Copilot onReply={bump} askRef={askRef} threadRef={threadRef} noteRef={noteRef} actRef={actRef} onTasks={bump} /></div>
           </div>
         </aside>
       </div>

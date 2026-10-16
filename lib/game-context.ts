@@ -106,6 +106,14 @@ GAME MECHANICS
   Revenue/profit only move the price via cash and analyst cards. EPS (col Q) = net profit / shares.
   Note: workbook cell E263 'Price per share' exists for Year 1 only and hard-codes 1BN shares.
 
+NEXT EVENT (tomorrow morning): ANNUAL SHAREHOLDER MEETING & ANALYST DAY (management event card) - a
+short, visual presentation of key achievements over the past twelve months, the year's financial
+results, and above all the transformation roadmap and how we deliver it. Investors, analysts and the
+business press attend. Team notes for it: work out revenue minus expenses; borrowing capacity (team note
+says "10x revenue / 2"; the workbook's L227 says 10-year BM profit / 2 - flag which is used); we can issue
+bonds; get aggressive with corporate finance; the CFO must show how we get to $50B. Valuation in the
+sheet = cash x 100 + BM portfolio + analyst ratings, each counting only up to a point (grey in real life);
+the job is to convince capital markets there is a big valuation here.
 WHERE WE ARE: game Year 1 (see CURRENT GAME YEAR below). Next deliverable: a 3-minute board pitch on the
 Year 1 plan. A board-briefing handout the team has seen (TRANSFORM / ROUND 3 / BOARD BRIEFING):
 "THE $50B FINISH LINE"

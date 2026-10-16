@@ -480,7 +480,43 @@ const $x = (n: number, d = 2) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(d)
 
 // Market cap straight from the workbook's own formulas (column O = row 260 per year, in $M),
 // so it is always whatever the spreadsheet says. Refreshes whenever the workbook changes.
-type Overview = { year: number; certificate: { caps: number[]; price: number[]; eps: number[]; parts: Record<string, number>; rank: string } };
+type Overview = {
+  year: number;
+  certificate: { caps: number[]; price: number[]; eps: number[]; parts: Record<string, number>; rank: string };
+  kpis?: { cash: number };
+  plan?: { cashForCap: number; analysts: number[] };
+};
+
+// Goal tracker that works below zero: a scale from the lowest point to $50B with a zero line,
+// milestones, the gap to the next one, and what the number is made of in plain words.
+const MILESTONES = [0, 1000, 5000, 10000, 25000, 50000];
+function GoalTrack({ now, parts, cash, cashCounted, sells }: { now: number; parts: Record<string, number>; cash?: number; cashCounted?: number; sells?: number }) {
+  const lo = Math.min(0, now, -2500), hi = 50000;
+  const at = (v: number) => ((v - lo) / (hi - lo)) * 100;
+  const next = MILESTONES.find((m) => m > now) ?? 50000;
+  const why = [
+    `business models ${$M(parts["BM portfolio"] ?? 0)}`,
+    `analyst cards ${$M(parts["Analyst cards"] ?? 0)}${sells ? ` (${sells} Sell)` : ""}`,
+    cash !== undefined ? `cash ${$M(cash / 1e6)} on hand, ${$M(parts.Cash ?? 0)} counted${!cashCounted ? " (cash for market cap, D240, is blank)" : ""}${(parts["BM portfolio"] ?? 0) + (parts["Analyst cards"] ?? 0) <= 0 ? " — cash only counts once models + analysts are above zero" : ""}` : "",
+  ].filter(Boolean).join(" · ");
+  return (
+    <div className="relative mt-5 space-y-1.5">
+      <div className="flex justify-between eyebrow text-white/75">
+        <span>Goal $50B · {$M(Math.max(0, 50000 - now))} to go</span>
+        <span className="text-amber-300 whitespace-nowrap">Next: {next === 0 ? "$0" : $M(next)} ({$M(next - now)} away)</span>
+      </div>
+      <div className="relative h-3 rounded-full bg-white/12" role="progressbar" aria-label="Market cap toward $50B" aria-valuemin={lo} aria-valuemax={hi} aria-valuenow={now} aria-valuetext={`${$M(now)} of $50B`}>
+        <span className="absolute inset-y-0 rounded-full" style={{ left: `${at(Math.min(0, now))}%`, width: `${Math.abs(at(now) - at(0))}%`, background: now < 0 ? "#ff9aa2" : "linear-gradient(90deg,#f3d77a,var(--gold))" }} />
+        {MILESTONES.map((m) => <span key={m} className={`absolute top-[-3px] bottom-[-3px] w-px ${m === 0 ? "bg-white" : "bg-white/40"}`} style={{ left: `${at(m)}%` }} />)}
+        <span className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white ring-2 ring-[var(--gold)]" style={{ left: `${at(now)}%` }} />
+      </div>
+      <div className="relative h-3 text-[10px] text-white/55 num">
+        {[0, 10000, 25000, 50000].map((m) => <span key={m} className={`absolute ${m === 50000 ? "-translate-x-full" : "-translate-x-1/2"}`} style={{ left: `${at(m)}%` }}>{m === 0 ? "$0" : $M(m)}</span>)}
+      </div>
+      <p className="text-xs text-white/70 pt-1">{$M(now)} today = {why}.</p>
+    </div>
+  );
+}
 
 // Figures count up from where they were to the new value (skipped if reduced motion is on).
 function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
@@ -523,7 +559,6 @@ export function MarketCapBar({ version }: { version: number }) {
       </section>
     );
   const now = d.caps[d.year - 1] ?? 0;
-  const pct = Math.min(100, (now / 50000) * 100);
   const max = Math.max(...d.caps.map(Math.abs), 1);
   return (
     <section className="certificate p-5 sm:p-6" aria-label="Market cap">
@@ -545,14 +580,7 @@ export function MarketCapBar({ version }: { version: number }) {
           <div><dt className="eyebrow text-white/60">Leaderboard</dt><dd className="figure text-3xl">{d.rank ? d.rank.split(" ")[0] : "—"}</dd></div>
         </dl>
       </div>
-      <div className="relative mt-5">
-        <div className="flex justify-between eyebrow text-white/70 mb-1">
-          <span>{now < 0 ? "Below zero: the $50B climb starts at $0" : `${pct.toFixed(1)}% of the way`}</span><span className="text-amber-300 whitespace-nowrap">$50B<span className="hidden sm:inline"> · $50 a share</span></span>
-        </div>
-        <div className="rail h-2.5 rounded-full overflow-hidden" role="progressbar" aria-label="Progress to $50B" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-          <span style={{ width: `${Math.max(pct, 0.6)}%`, opacity: now < 0 ? 0.35 : 1 }} />
-        </div>
-      </div>
+      <GoalTrack now={now} parts={d.parts} cash={o?.data?.kpis?.cash} cashCounted={o?.data?.plan?.cashForCap} sells={o?.data?.plan?.analysts?.[3]} />
       <div className="relative mt-4 flex items-end gap-1.5 h-12" aria-label="Market cap by year">
         {d.caps.map((c, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`Year ${i + 1}: ${$M(c)} · ${$x(d.price[i])}/share`}>

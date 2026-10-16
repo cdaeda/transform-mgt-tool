@@ -2,7 +2,10 @@ import postgres from "postgres";
 
 // Server-only. Supabase session pooler (port 5432): safe for parallel queries on one connection
 // (the transaction pooler on 6543 mixed up replies under load). Few connections per instance.
-export const sql = postgres(process.env.DATABASE_URL ?? "postgres://unset", { prepare: false, max: 3, idle_timeout: 20 });
+// The session pooler caps clients at 15, so: one client per server process (reused across dev hot
+// reloads via globalThis), one connection each (queries pipeline on it), closed after 5s idle.
+const g = globalThis as unknown as { __sql?: ReturnType<typeof postgres> };
+export const sql = (g.__sql ??= postgres(process.env.DATABASE_URL ?? "postgres://unset", { prepare: false, max: 1, idle_timeout: 5 }));
 
 export const BM_TYPES = ["Core", "Growth", "Explore"] as const;
 export const CARD_TYPES = [
