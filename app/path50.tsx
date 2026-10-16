@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { project, type Strat } from "@/lib/capital";
 import { ANALYST_NAMES, ANALYST_VALUE, BM_VALUE, exploreNeeded, marketCap, type Levers } from "@/lib/marketcap";
-import { useOverview } from "./overview-store";
+import { refreshOverview, useOverview } from "./overview-store";
 
 type Plan = {
   units: { core: number; growth: number; explore: number }; analysts: number[]; cashForCap: number; cash: number; shares: number;
   revenue: number; expenses: number; bmProfit10y: number; revenue10y: number;
+  years: { year: number; revenue: number; expenses: number }[];
 };
-type Overview = { year: number; plan: Plan };
+type Overview = { year: number; plan: Plan; goal: { year: number; cap: number }; capital: (Strat & { category: string })[] };
 
 const TARGET = 50_000; // $M
 const capM = (m: number) => `${m < 0 ? "−" : ""}$${Math.abs(m) >= 1000 ? `${(Math.abs(m) / 1000).toFixed(2)}B` : `${Math.abs(m).toFixed(0)}M`}`;
@@ -33,7 +35,12 @@ export function PathTo50B({ version, ask, makeTasks }: { version: number; ask: (
   const o = useOverview<Overview>(version);
   const p = o?.data?.plan;
   if (!p) return <div className="game-card h-64 animate-pulse" aria-busy="true" />;
-  return <Planner key={`${o!.data.year}-${p.units.explore}-${p.analysts.join()}`} year={o!.data.year} p={p} ask={ask} makeTasks={makeTasks} />;
+  return (
+    <>
+      <Planner key={`${o!.data.year}-${p.units.explore}-${p.analysts.join()}`} year={o!.data.year} p={p} ask={ask} makeTasks={makeTasks} />
+      <YearPlan o={o!.data} />
+    </>
+  );
 }
 
 function Planner({ year, p, ask, makeTasks }: { year: number; p: Plan; ask: (t: string) => void; makeTasks: (c: string) => void }) {
@@ -53,7 +60,6 @@ function Planner({ year, p, ask, makeTasks }: { year: number; p: Plan; ask: (t: 
   const cashNeeded = Math.max(0, base) / 100; // $M of cash that still counts at the cap
 
   // Paying for it: profit, borrowing capacity (both rules), bond interest.
-  const profit = p.revenue - p.expenses;
   const capWorkbook = p.bmProfit10y / 2;
   const capNote = (10 * p.revenue) / 2;
   const interest = bond * 1e6 * (rate / 100);
@@ -137,16 +143,12 @@ function Planner({ year, p, ask, makeTasks }: { year: number; p: Plan; ask: (t: 
         </fieldset>
       </div>
 
-      <section className="game-card space-y-2" aria-label="How we pay for it">
-        <h3 className="text-lg">How we pay for it · Year {year}</h3>
-        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-          <div><dt className="eyebrow text-zinc-500">Revenue − expenses</dt><dd className={`font-display text-2xl ${profit < 0 ? "text-red-600" : ""}`}>{money(profit)}</dd><dd className="text-xs text-zinc-500">{money(p.revenue)} − {money(p.expenses)} (BM cost + cost base + interest)</dd></div>
-          <div><dt className="eyebrow text-zinc-500">Borrowing capacity · workbook rule</dt><dd className="font-display text-2xl">{money(capWorkbook)}</dd><dd className="text-xs text-zinc-500">10-year BM profit ÷ 2 (cell L227)</dd></div>
-          <div><dt className="eyebrow text-zinc-500">Borrowing capacity · your note</dt><dd className="font-display text-2xl">{money(capNote)}</dd><dd className="text-xs text-zinc-500">10 × this year&rsquo;s revenue ÷ 2 — confirm which rule the facilitator uses</dd></div>
-          <div><dt className="eyebrow text-zinc-500">Bond {capM(bond)} at {rate}%</dt><dd className="font-display text-2xl">{money(interest)}/yr</dd>
-            <dd className={`text-xs ${bond * 1e6 > Math.max(capWorkbook, capNote) ? "text-red-600" : "text-zinc-500"}`}>{bond * 1e6 > Math.max(capWorkbook, capNote) ? "Above both borrowing limits — needs a different structure (equity, partner money)" : "Within borrowing capacity"}{" · lead lender must consent to new debt"}</dd></div>
-        </dl>
-      </section>
+      <p className="text-sm">
+        Bond {capM(bond)} at {rate}%: <b>{money(interest)}/yr</b> interest ·{" "}
+        <span className={bond * 1e6 > Math.max(capWorkbook, capNote) ? "text-red-600" : "text-zinc-500"}>
+          {bond * 1e6 > Math.max(capWorkbook, capNote) ? "above both borrowing limits: needs equity or partner money" : "within borrowing capacity"}; the lead lender must consent to new debt.
+        </span>
+      </p>
 
       <div className="flex flex-wrap gap-2">
         <button onClick={() => ask(`${summary}\n\nAs CFO, give us the corporate finance plan to get to $50B - be aggressive but legitimate and audit-proof: which business models and innovation strategies to add, how to turn our analyst ratings (we hold ${p.analysts[3]} Sell), how much cash to hold vs. invest (cash only counts up to portfolio + analysts), bonds or other financing within our borrowing capacity and lender covenants, buybacks vs. issuance, and the order of moves by year. Rank the moves by $ of market cap per $ spent.`)}
@@ -155,5 +157,88 @@ function Planner({ year, p, ask, makeTasks }: { year: number; p: Plan; ask: (t: 
       </div>
       <p className="text-xs text-zinc-500">Market cap here follows the workbook formula exactly; the game&rsquo;s real valuation is greyer — capital markets reward a convincing story up to a point.</p>
     </div>
+  );
+}
+
+const STATUS = ["idea", "pitching", "locked"] as const;
+const STATUS_STYLE: Record<string, string> = { idea: "border-zinc-300 dark:border-zinc-700", pitching: "border-amber-500", locked: "border-green-700 bg-green-50 dark:bg-green-950/30" };
+
+// Every year from now to the goal: what the workbook says we earn and can borrow, and which capital
+// strategies land when. Planning = giving each strategy a year and a status; the projection follows.
+function YearPlan({ o }: { o: Overview }) {
+  const { year: now, plan: p, goal } = o;
+  const [busy, setBusy] = useState(0);
+  const strats = o.capital.filter((s) => s.status !== "rejected");
+  const today = { ...p.units, analysts: [...p.analysts, 0, 0, 0, 0, 0].slice(0, 5), cash: p.cashForCap, shares: p.shares, year: now };
+  const proj = project(today, strats, goal.year);
+  const years = proj.map((x) => x.year);
+  const capWorkbook = p.bmProfit10y / 2;
+  const patch = async (id: number, body: object) => {
+    setBusy(id);
+    await fetch("/api/financing", { method: "PATCH", body: JSON.stringify({ id, ...body }) });
+    refreshOverview();
+    setBusy(0);
+  };
+  const Chip = ({ s }: { s: (typeof strats)[number] }) => (
+    <li className={`rounded-md border p-1.5 text-xs space-y-1 ${STATUS_STYLE[s.status] ?? ""} ${busy === s.id ? "opacity-50" : ""}`}>
+      <p className="font-semibold leading-snug">{s.name}</p>
+      {s.effect && <p className="text-zinc-500">{[s.effect.cash_m && `cash ${capM(s.effect.cash_m * (s.scale ?? 1))}`, (s.effect.core || s.effect.growth || s.effect.explore) && `BMs +${s.effect.core}/${s.effect.growth}/${s.effect.explore}`, s.effect.analysts?.some(Boolean) && "ratings move", s.effect.shares_m && `${s.effect.shares_m > 0 ? "+" : ""}${s.effect.shares_m}M shares`].filter(Boolean).join(" · ") || "no lever effect"}</p>}
+      <span className="flex gap-1">
+        <select value={s.year ?? ""} onChange={(e) => patch(s.id, { year: e.target.value ? +e.target.value : null })} aria-label={`Year for ${s.name}`} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent">
+          <option value="">No year</option>
+          {years.map((y) => <option key={y} value={y}>Year {y}</option>)}
+        </select>
+        <select value={s.status} onChange={(e) => patch(s.id, { status: e.target.value })} aria-label={`Status of ${s.name}`} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent">
+          {STATUS.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </span>
+    </li>
+  );
+  const row = (label: string, f: (y: number, k: number) => React.ReactNode, note?: string) => (
+    <tr className="border-t border-zinc-200 dark:border-zinc-800 align-top">
+      <th scope="row" className="text-left font-normal text-zinc-600 dark:text-zinc-400 py-1.5 pr-3">{label}{note && <span className="block text-xs text-zinc-500">{note}</span>}</th>
+      {years.map((y, k) => <td key={y} className="py-1.5 px-2 tabular-nums">{f(y, k)}</td>)}
+    </tr>
+  );
+  const fin = (y: number) => p.years.find((r) => r.year === y);
+  const unplanned = strats.filter((s) => !s.year || s.year < now || s.year > goal.year);
+  return (
+    <section className="game-card space-y-3" aria-label="Year-by-year plan">
+      <div>
+        <h3 className="text-lg">Year-by-year plan · Year {now} → Year {goal.year}</h3>
+        <p className="text-xs text-zinc-500">Give each capital strategy a year and a status. Locked ones drive the market-cap projection here and in &ldquo;${goal.cap / 1000}B by Year {goal.year}&rdquo;. Revenue and expenses are what the workbook holds for each year.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[36rem]">
+          <thead><tr><th className="sr-only">Measure</th>{years.map((y) => <th key={y} scope="col" className="text-left eyebrow text-zinc-500 px-2 pb-1">Year {y}{y === now ? " · now" : ""}</th>)}</tr></thead>
+          <tbody>
+            {row("Revenue − expenses", (y) => { const r = fin(y); return r ? <span className={r.revenue - r.expenses < 0 ? "text-red-600" : ""}>{money(r.revenue - r.expenses)}<span className="block text-xs text-zinc-500">{money(r.revenue)} − {money(r.expenses)}</span></span> : "—"; })}
+            {row("Borrowing capacity", (y) => { const r = fin(y); return <>{money(capWorkbook)}<span className="block text-xs text-zinc-500">note rule {r ? money((10 * r.revenue) / 2) : "—"}</span></>; }, "workbook: 10-yr BM profit ÷ 2 (L227)")}
+            {row("Market cap · locked plan", (_, k) => <b className={proj[k].total < 0 ? "text-red-600" : ""}>{capM(proj[k].total)}</b>)}
+            {row("Cash raised (locked)", (y) => money(strats.filter((s) => s.status === "locked" && s.year === y && s.effect).reduce((t, s) => t + s.effect!.cash_m * (s.scale ?? 1), 0) * 1e6))}
+            {row("Extra interest / yr", (_, k) => money(proj[k].interest_m * 1e6), "cumulative, locked")}
+            {row("Strategies landing", (y) => {
+              const here = strats.filter((s) => s.year === y), ideas = here.filter((s) => s.status === "idea");
+              return (
+                <div className="space-y-1.5 min-w-40">
+                  <ul className="space-y-1.5">{here.filter((s) => s.status !== "idea").map((s) => <Chip key={s.id} s={s} />)}</ul>
+                  {ideas.length > 0 && (
+                    <details><summary className="cursor-pointer text-xs font-semibold">+{ideas.length} idea{ideas.length === 1 ? "" : "s"}</summary>
+                      <ul className="space-y-1.5 mt-1.5">{ideas.map((s) => <Chip key={s.id} s={s} />)}</ul>
+                    </details>
+                  )}
+                </div>
+              );
+            }, "pitching & locked; ideas folded")}
+          </tbody>
+        </table>
+      </div>
+      {unplanned.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold">{unplanned.length} strateg{unplanned.length === 1 ? "y has" : "ies have"} no year in this window: give them one</summary>
+          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">{unplanned.map((s) => <Chip key={s.id} s={s} />)}</ul>
+        </details>
+      )}
+    </section>
   );
 }
