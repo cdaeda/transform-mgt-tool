@@ -1,12 +1,21 @@
+import { after } from "next/server";
 import postgres from "postgres";
 
-// Server-only. Supabase TRANSACTION pooler (port 6543), built for serverless: Vercel pauses idle
-// instances, so the session pooler (5432, 15 clients max) filled up with connections that never got
-// to close. A 5432 URL is switched to 6543 here. Tested: 750 pipelined queries and concurrent
-// transactions on one connection came back matched. One client per process (reused across dev hot
-// reloads via globalThis), one connection, closed after 1s idle.
+// Server-only. Supabase SESSION pooler (port 5432). The transaction pooler (6543) mixed up replies in
+// production (twice), so don't switch to it. The session pooler caps clients at 15 and Vercel pauses
+// idle instances, freezing the idle timer, so connections leaked until the cap was hit. Fix: after
+// every query, keep the instance awake (after() -> waitUntil) past the 1s idle timeout, so the
+// connection closes before the pause. One client per process (reused across dev hot reloads), one
+// connection (queries pipeline on it).
 const g = globalThis as unknown as { __sql?: ReturnType<typeof postgres> };
-export const sql = (g.__sql ??= postgres((process.env.DATABASE_URL ?? "postgres://unset").replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/"), { prepare: false, max: 1, idle_timeout: 1 }));
+const linger = () => {
+  try {
+    after(() => new Promise((r) => setTimeout(r, 1500)));
+  } catch {
+    /* outside a request (build, scripts): nothing to keep alive */
+  }
+};
+export const sql = (g.__sql ??= postgres(process.env.DATABASE_URL ?? "postgres://unset", { prepare: false, max: 1, idle_timeout: 1, debug: linger }));
 
 export const BM_TYPES = ["Core", "Growth", "Explore"] as const;
 export const CARD_TYPES = [

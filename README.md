@@ -55,9 +55,11 @@ To keep your own copy, fork the repo on GitHub first and clone your fork instead
 3. Open **SQL Editor → New query**, paste the whole of [`supabase/schema.sql`](supabase/schema.sql), and click **Run**.
    - It creates every table (strategy, cards, teams, financing ideas, audits, workbook, tasks, knowledge, threads, decks, next moves, rolls, round snapshots, activity) and seeds the single strategy row.
    - It is safe to run again: every statement uses `if not exists`. Re-run it whenever you pull a newer version of the app.
-4. Get the connection string: click **Connect** (top of the project page) → **Connection string** → **Transaction pooler**.
-   - Use the **transaction pooler (port 6543)**. It is built for serverless hosting. The session pooler (5432) allows only 15 clients, and Vercel's paused instances hold theirs open until it fills up. (If you paste a 5432 pooler URL, the app switches it to 6543 automatically.)
-   - Copy the URI and replace `[YOUR-PASSWORD]` with the database password from step 1. It looks like `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`.
+4. Get the connection string: click **Connect** (top of the project page) → **Connection string** → **Session pooler**.
+   - Use the **session pooler (port 5432)**. Don't use the transaction pooler (6543): with this app's database client (`postgres.js`) it mixed up replies between queries in production, which returned wrong data.
+   - The session pooler allows 15 clients at once. The app keeps one connection per server instance, closes it after 1 second idle, and keeps the Vercel instance awake just long enough to close it (see `lib/db.ts`). That way paused instances don't hold slots.
+   - Don't use the "Direct connection" (`db.<ref>.supabase.co`) either. It is IPv6-only, and Vercel can't reach it.
+   - Copy the URI and replace `[YOUR-PASSWORD]` with the database password from step 1. It looks like `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`.
 5. Keep it for Step 6 as `DATABASE_URL`.
 
 Row-level security is switched on for every table with no policies, so Supabase's public API can't read the data. The app connects as the database owner from the server only.
@@ -101,7 +103,7 @@ Create `.env.local` in the project root. It is git-ignored.
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 APP_PASSWORD=pick-a-shared-password
 CLASS_SHEET_ID=<the sheet id>
 GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...", ... }
@@ -111,7 +113,7 @@ NEXT_PUBLIC_TEAM_NAMES={"CEO":"...","CFO":"..."}
 | Variable | Required | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Yes | Read automatically by the Anthropic SDK. |
-| `DATABASE_URL` | Yes | Supabase **transaction pooler**, port 6543. |
+| `DATABASE_URL` | Yes | Supabase **session pooler**, port 5432 (not the transaction pooler). |
 | `APP_PASSWORD` | Recommended | Browser password prompt; any username works. If empty, the app is open to anyone. |
 | `CLASS_SHEET_ID` | For syncing | Without it, upload the workbook `.xlsx` by hand instead. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | For writing back | The **entire** key file on **one line**. Without it, changes stay in the app and are listed as "not yet pushed". |
@@ -211,7 +213,7 @@ Set up the "Transform! Mgt Tool" from https://github.com/cdaeda/transform-mgt-to
 1. Clone the repo into this folder and run `npm install`. Confirm Node >= 22.
 2. Read README.md end to end, and follow it step by step.
 3. Supabase: if the Supabase MCP is connected, create (or let me pick) a project, apply
-   supabase/schema.sql, and build the TRANSACTION POOLER (port 6543) connection string. Otherwise walk me
+   supabase/schema.sql, and build the SESSION POOLER (port 5432) connection string (NOT the transaction pooler on 6543). Otherwise walk me
    through the dashboard steps and wait for me to paste the connection string.
 4. Google: walk me through creating the service account and enabling the Sheets API, then ask me for
    the key file path and flatten it to one line yourself. Ask me for the class sheet ID and our team's
@@ -239,7 +241,8 @@ Set up the "Transform! Mgt Tool" from https://github.com/cdaeda/transform-mgt-to
 | "Only the CFO can change numbers" | Click the role chip in the header and pick CFO. |
 | `Couldn't download the class sheet (HTTP 401/404)` | The sheet must stay shared "anyone with the link can view", and `CLASS_SHEET_ID` must be just the ID. |
 | Writes stay "not yet pushed" | `GOOGLE_SERVICE_ACCOUNT_JSON` missing or not one line, the Sheets API isn't enabled, or the sheet isn't shared with the service-account email as Editor. |
-| `EMAXCONNSESSION` / `max clients reached`, or "Unexpected end of JSON input" | You are on the session pooler (5432). Use the transaction pooler URL (6543). |
+| `EMAXCONNSESSION` / `max clients reached`, or "Unexpected end of JSON input" | More than 15 connections are open. Stop extra local `npm run dev` servers and wait a minute. If it keeps happening, raise **Pool Size** in Supabase → Database → Settings → Connection pooling. |
+| Wrong or missing data, `Cannot read properties of undefined` | You are on the transaction pooler (6543). Switch `DATABASE_URL` to the session pooler (5432) and redeploy. |
 | `relation "…" does not exist` | Re-run `supabase/schema.sql` in the SQL editor. |
 | Copilot replies "Error: 401" | The Anthropic key is wrong or out of credit. |
 
