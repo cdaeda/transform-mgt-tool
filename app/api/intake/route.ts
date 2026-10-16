@@ -12,7 +12,7 @@ const Intake = z.object({
   card_family: z.string().describe("If kind=card: the family printed on the card header (Business Model, Innovation Strategy, Management Event/Challenge/Task, Analyst, BOOM!, BUST!, Strategic Dilemma, Weak Signal, Market News, Advisor, Super CEO, Company...); else empty"),
   title: z.string().describe("Short name for the new chat thread"),
   understood: z.string().describe("One or two sentences: what this is and what the team most likely wants"),
-  opening: z.string().describe("The copilot's first message: a crisp read of it (key numbers for a card), why it matters to Dragon Drive / H1-H3, and a one-line question asking what to do. Under 120 words."),
+  opening: z.string().describe("The copilot's first message: a crisp read of it (key numbers for a card), why it matters to Dragon Nexus / H1-H3, and a one-line question asking what to do. Under 120 words."),
   chips: z.array(z.object({
     label: z.string().describe("2-5 words, verb first, e.g. 'Evaluate & log card'"),
     mode: z.enum(["evaluate_card", "chat", "create_tasks"]),

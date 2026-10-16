@@ -15,25 +15,62 @@ THE CASE (from the team's handoff; treat unconfirmed items as assumptions)
 - Working figures: valuation ~ $3B (estimate), $5M cash, $900M debt due 2030 held by a lead lender who
   can block asset sales, new borrowing and bets that burn their collateral (covenant risk on every
   capex/loan decision).
-- Unfair asset: a driving AI trained on millions of km of hard traffic, updated over the air weekly.
-- Thesis: become DRAGON DRIVE, the neutral AI driving platform carmakers and mobility services license.
-  Balance: Core (cars) funds today and feeds driving data; Growth = Dragon Drive licensing; Explore =
-  data products and mobility services. Filter: invest when it feeds the data flywheel, moves us toward
-  $50B and rests on evidence. Discipline: pivot/exit when learning changes the answer.
-- PROPOSED, not confirmed: Dragon Drive domiciled in Germany as a separately governed platform unit
-  (risks: China data-export rules, EU/US connected-vehicle rules, lender covenants); "partners pay or
-  commit to pilots" as the evidence bar.
+- STRATEGY (updated 2026-10-16): "Flying Dragon: Build the Vehicles. Own the Intelligence Network."
+  Investment thesis: use the next six years of vehicle manufacturing to generate cash, build a TWO-SIDED
+  MARKET for 4D intelligence, and fund breakthrough communications without depending on them.
+  * Manufacturing (Core): keep building cars for ~6 years; buy the CHINA MANUFACTURING CARDS; prioritise
+    manufacturing investments that generate cash, service debt and fund the transformation.
+  * DRAGON NEXUS (proposed): an intelligence and communications platform for a world in motion. Vehicle
+    sensors (with permission), partner infrastructure and a microsatellite network build a 4D map (3D space
+    tracked through time): what happened, what is happening now, what our models predict next.
+  * It is a MARKETPLACE, not just a map. Supply: fleets, satellite operators, sensor/infrastructure owners
+    and network operators contribute permissioned observations, history, new observation tasks and
+    communications capacity, and earn when their contributions are bought. Demand: automakers, logistics
+    companies, cities, insurers and autonomous-system operators buy subscriptions, historical
+    reconstructions (e.g. an insurer's Verified Event Record), corridor conditions and reserved future
+    observations (a service commitment, not a guaranteed forecast). Signature transaction: "verified road
+    and infrastructure conditions for this corridor between 3:00 and 3:30 p.m." Revenue: subscriptions,
+    usage fees and a marketplace take (illustrative pricing only: customer pays $100, suppliers get $80,
+    we keep $20 before our costs - NOT a profitability forecast).
+  * Go-to-market: start with our FleetOS customers and selected logistics corridors; prove it, then open it
+    to other manufacturers and operators - a NEUTRAL network, not limited to our vehicles. Recruit
+    contributors from real demand before any broad satellite build-out.
+  * DRAGON LEDGER: shared, tamper-evident record of signed submissions, map-version references, service
+    orders, delivery acknowledgments and payments (big data stays off-chain). It does not by itself prove a
+    reading is true - source authentication, corroboration and quality control still needed.
+  * DRAGON CREDITS: fixed-value service units, the only settlement unit on the Dragon Nexus protocol;
+    customers pay in ordinary currency. Not a speculative coin; prepaid credits are a service obligation,
+    not immediate profit.
+  * SUBSPACE COMMUNICATIONS: the internal team's breakthrough research option, inside a capped budget;
+    NOT part of the base case (if the game allows it: reserved capacity, enterprise contracts, per-message
+    delivery, settled in credits).
+  * Funding, three buyers: (1) a manufacturing/industrial partner funds the China manufacturing cards for
+    equity or a share of realised manufacturing cash flow (+ supply access); (2) founding customers prepay
+    the mapping/marketplace pilot (priority coverage, intro pricing, defined deliverables); (3) a satellite
+    or telecom partner funds initial network deployment for a minority stake in the network venture plus
+    contracted revenue. Count partner-provided equipment or capacity separately from cash raised.
+  * Sequence (protect it): manufacturing investment first -> paid pilot -> network expansion once demand
+    and delivery costs are proven -> speculative research capped. "Manufacturing creates cash, the network
+    creates intelligence, the marketplace turns that intelligence into recurring revenue."
+  * Constraint: the $900M debt due 2030 and the lead lender's veto stand. The plan needs lender consent, a
+    credible repayment or restructuring plan, and limits on how much cash moves into future technology.
+  * Closing line: "Back Flying Dragon to manufacture the vehicles today, build the intelligence network
+    tomorrow, and earn recurring revenue from the services that connect them."
+  * Retired name: the earlier thesis was "Dragon Drive" (neutral AI driving platform). Treat older
+    notes, cards and strategies that say Dragon Drive as the previous plan; Dragon Nexus replaces it.
 - Team: ${teamLine()} - the CFO also covers investor relations. Frameworks: WIN (Transform,
   Differentiate, Compound, Defend), Theory of Advantage, Gates 1-6 to a Capital Markets Day.
 - Never invent statistics or quotes; use [bracketed placeholders] and list them. Flag assumptions
   the team has not confirmed.
 
 OUR THREE HORIZONS (the team's strategy - score every card and decision against these)
-- H1 MAINTAIN the legacy business: Core cars run for cash and driving data; fund the base; cut opex.
-- H2 EXPAND our offering with SATELLITE DATA: capture fleet data everywhere and combine it with
-  satellite feeds into data products (Growth). Funded by data customers.
-- H3 CEMENT the NETWORK EFFECT with ecosystem partnerships: carmakers, mobility services and our fuel
-  network license Dragon Drive and share data (Explore -> ecosystem). Funded by partners.
+- H1 BUILD THE VEHICLES, FUND THE TRANSFORMATION: Core car manufacturing (incl. the China manufacturing
+  cards) run for cash and debt service, with permissioned vehicle sensors feeding the network.
+- H2 LAUNCH DRAGON NEXUS: the paid pilot of the 4D-intelligence marketplace with FleetOS customers on
+  selected logistics corridors (Growth). Funded by founding customers' prepaid service agreements.
+- H3 OWN THE INTELLIGENCE NETWORK: open, neutral network of contributors and buyers, satellite/telecom
+  partners, microsatellites, Dragon Ledger and Dragon Credits; subspace research capped (Explore ->
+  ecosystem). Funded by network partners for a minority stake.
 - The TUNER KNOB sets the target investment mix across H1/H2/H3 (Defend = 80/15/5 ... Transform =
   30/35/35). Say whether a card or move pushes our actual mix toward or away from the target.
 

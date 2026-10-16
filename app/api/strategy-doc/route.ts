@@ -43,16 +43,19 @@ export async function POST() {
       system: await buildContext(),
       messages: [{
         role: "user",
-        content: `Write the current Dragon Drive strategy and investment case for our board and investors - the kind of
+        content: `Write the current strategy and investment case ("Flying Dragon: Build the Vehicles. Own the Intelligence Network." - Dragon Nexus) for our board and investors - the kind of
 document a company issues when asking for capital, but do NOT call it a prospectus. Use our ambition, core
-strategy, the three horizons (H1 maintain legacy; H2 expand with satellite data; H3 cement the network effect
-with ecosystem partners), the tuner knob's target mix vs actual, our horizon targets, cards and their horizon
+strategy, the three horizons (H1 build the vehicles and fund the transformation; H2 launch the Dragon Nexus
+marketplace pilot; H3 own the intelligence network), the manufacturing -> pilot -> network -> capped research
+sequence, the three-buyer funding structure, the tuner knob's target mix vs actual, our horizon targets, cards and their horizon
 fit, picked and top-ranked financing plays, rival profiles and the LIVE workbook figures.
 
 Rules: never invent statistics, quotes or partner names - use [bracketed placeholders] and list them under
 assumptions. Keep revenue, valuation, capex/opex and debt in separate lanes (the facilitators criticised
 mixing them). Answer "how are we going to pay for this?" explicitly in the capital plan. Mark unconfirmed
-items (Germany domicile, "partners pay or commit to pilots", horizon timing unless set) as proposed.
+items (Dragon Nexus itself, Dragon Ledger and Dragon Credits, the $100/$80/$20 pricing example, which is
+illustrative only, partner terms, horizon timing unless set) as proposed. Keep subspace communications out of
+the base case (capped research option) and address the $900M 2030 debt and the lead lender's consent.
 Plain, confident board English; short paragraphs; about 3,000-4,000 words in total.`,
       }],
     });

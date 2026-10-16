@@ -21,7 +21,7 @@ function Reveal({ root, children }: { root: React.RefObject<HTMLDivElement | nul
   return <div ref={el} className={`transition-all duration-700 motion-reduce:transition-none ${shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 motion-reduce:opacity-100 motion-reduce:translate-y-0"}`}>{children}</div>;
 }
 
-// The first thing on the dashboard: what Dragon Drive is, as of the latest strategy document,
+// The first thing on the dashboard: what Dragon Nexus is, as of the latest strategy document,
 // expanding into the full strategy and the H1 -> H3 roadmap as a vertical lineage.
 export function StrategyCard({ version }: { version: number }) {
   const [doc, setDoc] = useState<{ content: StrategyDocT; created_at: string } | null>(null);
@@ -66,7 +66,7 @@ export function StrategyCard({ version }: { version: number }) {
         <p className="eyebrow text-amber-700 dark:text-amber-300">Our core strategy</p>
         {asOf && <p className="eyebrow text-zinc-500 text-right whitespace-nowrap">As of {new Date(asOf).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>}
       </div>
-      <h2 className="text-4xl sm:text-5xl leading-none mt-1">Dragon Drive</h2>
+      <h2 className="text-4xl sm:text-5xl leading-none mt-1">Dragon Nexus</h2>
       <p className="font-display text-lg sm:text-xl text-zinc-700 dark:text-zinc-300 mt-1">{d?.tagline ?? st?.ambition}</p>
       <p className="mt-3 max-w-4xl">{d?.summary ?? st?.core_strategy}</p>
 
@@ -98,11 +98,11 @@ export function StrategyCard({ version }: { version: number }) {
             <div className="h-full bg-[var(--gold)] transition-[width] duration-150" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
           {/* floating panel: ends ~100px above the window bottom so the page underneath stays visible */}
-          <div ref={panel} onScroll={onScroll} role="dialog" aria-label="Dragon Drive strategy in full"
+          <div ref={panel} onScroll={onScroll} role="dialog" aria-label="Dragon Nexus strategy in full"
             className="fixed z-[65] inset-x-2 sm:inset-x-8 lg:inset-x-[max(2rem,calc((100vw-72rem)/2))] top-3 bottom-[100px] overflow-y-auto overscroll-contain rounded-2xl border-2 border-amber-500/70 bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center gap-2 px-4 sm:px-6 py-3 bg-surface/95 backdrop-blur border-b border-amber-500/30">
               <div className="min-w-0">
-                <p className="eyebrow text-amber-700 dark:text-amber-300">Dragon Drive · strategy in full{asOf && ` · as of ${new Date(asOf).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}</p>
+                <p className="eyebrow text-amber-700 dark:text-amber-300">Dragon Nexus · strategy in full{asOf && ` · as of ${new Date(asOf).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}</p>
                 <p className="font-display uppercase tracking-wide truncate">{d.title}</p>
               </div>
               <span className="ml-auto eyebrow text-zinc-500 tabular-nums hidden sm:inline">{Math.round(progress * 100)}%</span>

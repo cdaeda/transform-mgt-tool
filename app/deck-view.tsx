@@ -230,7 +230,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                 <div className="certificate flex-1 !rounded-none p-10 flex flex-col justify-end">
                   <p className="relative eyebrow text-amber-300">{DECK_LABEL} · Year {data?.year ?? ""}</p>
                   <DragonMark size={150} className="absolute right-10 top-10 opacity-90" />
-                  <h1 className="relative figure text-6xl sm:text-8xl mt-2">Dragon Drive</h1>
+                  <h1 className="relative figure text-6xl sm:text-8xl mt-2">Dragon Nexus</h1>
                   <p className="relative font-display text-2xl sm:text-3xl text-white/90 mt-2 normal-case">{sl.headline}</p>
                   <p className="relative text-white/70 mt-4">{deck.content.subtitle}</p>
                 </div>

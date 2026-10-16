@@ -58,7 +58,7 @@ export async function GET() {
       },
       horizons: [
         {
-          id: "H1", name: "Maintain the legacy business", portfolio: "Core",
+          id: "H1", name: "Build the vehicles, fund the transformation", portfolio: "Core",
           metric: "Core BM profit this year", actual: coreProfit, target: st.h1_target, unit: "$", status: status(coreProfit, st.h1_target),
           facts: [
             { label: "Core revenue", value: coreRev, unit: "$" },
@@ -67,7 +67,7 @@ export async function GET() {
           ],
         },
         {
-          id: "H2", name: "Expand with satellite data", portfolio: "Growth",
+          id: "H2", name: "Launch Dragon Nexus", portfolio: "Growth",
           metric: "Growth / data revenue this year", actual: growthRev, target: st.h2_target, unit: "$", status: status(growthRev, st.h2_target),
           facts: [
             { label: "Growth BM profit", value: growthProfit, unit: "$" },
@@ -76,8 +76,8 @@ export async function GET() {
           ],
         },
         {
-          id: "H3", name: "Cement the network effect with partners", portfolio: "Explore → ecosystem",
-          metric: "Ecosystem partners signed", actual: st.h3_partners, target: st.h3_target, unit: "#", status: status(st.h3_partners, st.h3_target),
+          id: "H3", name: "Own the intelligence network", portfolio: "Explore → network",
+          metric: "Network partners signed", actual: st.h3_partners, target: st.h3_target, unit: "#", status: status(st.h3_partners, st.h3_target),
           facts: [
             { label: "Teams profiled as partner fits", value: teams.filter((t) => t.plug_in.trim()).length, unit: "#" },
             { label: "Cards where AI says partner", value: cards.filter((c) => c.partner_verdict === "Partner").length, unit: "#" },

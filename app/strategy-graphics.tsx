@@ -18,22 +18,22 @@ const muted = "fill-zinc-500 dark:fill-zinc-400";
 // 1. The data flywheel: four steps around a loop, arrows on the circle.
 export function Flywheel() {
   const steps = [
-    { t: "Our cars, fuel network", s: "& factory software", c: C.H1 },
-    { t: "Driving data", s: "+ satellite feeds", c: C.H2 },
-    { t: "A smarter", s: "Dragon Drive", c: C.gold },
-    { t: "More licensees", s: "& partners", c: C.H3 },
+    { t: "Our vehicles", s: "& partner contributors", c: C.H1 },
+    { t: "Permissioned observations", s: "+ satellite feeds", c: C.H2 },
+    { t: "Better 4D intelligence", s: "on Dragon Nexus", c: C.gold },
+    { t: "More buyers", s: "& paid contributors", c: C.H3 },
   ];
   const R = 120, cx = 260, cy = 165;
   const pos = (i: number) => { const a = (-90 + i * 90) * (Math.PI / 180); return [cx + R * Math.cos(a), cy + R * Math.sin(a)]; };
   return (
-    <Figure n={1} caption="The Dragon Drive data flywheel: every kilometre driven makes the system better, which wins more partners, who feed it more data.">
-      <svg viewBox="0 0 520 330" className="w-full max-w-xl mx-auto" role="img" aria-label="Flywheel: cars and fuel network produce driving data, which makes Dragon Drive smarter, which wins more licensees and partners, who add more data">
+    <Figure n={1} caption="The Dragon Nexus marketplace flywheel: more contributors make better intelligence, which attracts more buyers, whose payments attract more contributors.">
+      <svg viewBox="0 0 520 330" className="w-full max-w-xl mx-auto" role="img" aria-label="Flywheel: our vehicles and partners contribute permissioned observations and satellite feeds, which make Dragon Nexus intelligence better, which attracts more buyers, whose payments attract more contributors">
         <defs><marker id="fw-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--color-zinc-400)" /></marker></defs>
         {steps.map((_, i) => {
           const a0 = (-90 + i * 90 + 22) * (Math.PI / 180), a1 = (-90 + (i + 1) * 90 - 22) * (Math.PI / 180);
           return <path key={i} d={`M${cx + R * Math.cos(a0)},${cy + R * Math.sin(a0)} A${R},${R} 0 0 1 ${cx + R * Math.cos(a1)},${cy + R * Math.sin(a1)}`} fill="none" stroke="var(--color-zinc-400)" strokeWidth="2" markerEnd="url(#fw-arrow)" />;
         })}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="15" className={label} fontFamily="var(--font-display-face)" letterSpacing="1">DATA</text>
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="15" className={label} fontFamily="var(--font-display-face)" letterSpacing="1">NETWORK</text>
         <text x={cx} y={cy + 14} textAnchor="middle" fontSize="15" className={label} fontFamily="var(--font-display-face)" letterSpacing="1">FLYWHEEL</text>
         {steps.map((s, i) => {
           const [x, y] = pos(i);
@@ -61,7 +61,7 @@ export function HorizonCurves({ when }: { when?: Record<string, string> }) {
     { id: "H3", name: "H3 · Ecosystem network effect", f: (t: number) => 0.9 * s(t, 7.5, 1.1), c: C.H3, at: 8.9 },
   ];
   return (
-    <Figure n={2} caption={`Three horizons: the legacy business funds today while satellite data and the partner ecosystem take over as the growth engines${when ? ` (${Object.entries(when).map(([k, v]) => `${k} ${v}`).join(" · ")})` : ""}. Illustrative shape, not a forecast.`}>
+    <Figure n={2} caption={`Three horizons: vehicle manufacturing funds today while the Dragon Nexus marketplace and the intelligence network take over as the growth engines${when ? ` (${Object.entries(when).map(([k, v]) => `${k} ${v}`).join(" · ")})` : ""}. Illustrative shape, not a forecast.`}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xl mx-auto" role="img" aria-label="Three S-curves: H1 declines slowly, H2 rises mid-period, H3 rises late and highest">
         <line x1={x(1)} x2={x(10)} y1={y(0)} y2={y(0)} stroke="var(--color-zinc-300)" />
         {[1, 4, 7, 10].map((t) => <text key={t} x={x(t)} y={y(0) + 18} textAnchor="middle" fontSize="11" className={muted}>Year {t}</text>)}

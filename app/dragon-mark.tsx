@@ -1,8 +1,8 @@
-// Flying Dragon -> Dragon Drive: a dragon folds into the Drive mark (a "D" with a steering wheel),
+// Flying Dragon -> Dragon Nexus: a dragon folds into the mark (a "D" around a hub of spokes),
 // and flames rise from the drive. Pure SVG + CSS; holds on the final mark when motion is reduced.
 export function DragonMark({ size = 160, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size} className={`dragon-mark ${className}`} role="img" aria-label="A flying dragon transforming into the Dragon Drive mark, with flames rising from it">
+    <svg viewBox="0 0 200 200" width={size} height={size} className={`dragon-mark ${className}`} role="img" aria-label="A flying dragon transforming into the Dragon Nexus mark, with flames rising from it">
       <defs>
         <linearGradient id="dm-fire" x1="0" x2="0" y1="1" y2="0">
           <stop offset="0%" stopColor="#d2353f" /><stop offset="55%" stopColor="#e07b2e" /><stop offset="100%" stopColor="#f3d77a" />

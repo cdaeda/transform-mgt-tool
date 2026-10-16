@@ -1,15 +1,15 @@
 import { z } from "zod";
 
-// The Dragon Drive strategy & investment case, as structured content (no markdown, so it renders
+// The Dragon Nexus strategy & investment case, as structured content (no markdown, so it renders
 // the same in the dashboard, the Word download and the print view).
 export const StrategyDoc = z.object({
-  title: z.string().describe("e.g. 'Dragon Drive — Strategy & Investment Case'"),
-  tagline: z.string().describe("One line: what Dragon Drive is"),
+  title: z.string().describe("e.g. 'Flying Dragon: Build the Vehicles. Own the Intelligence Network.'"),
+  tagline: z.string().describe("One line: what Flying Dragon and Dragon Nexus are"),
   summary: z.string().describe("3-4 sentence plain-language summary of the core strategy for the dashboard card"),
   executive_summary: z.array(z.string()).describe("3-5 short paragraphs"),
   roadmap: z.array(z.object({
     horizon: z.enum(["H1", "H2", "H3"]),
-    name: z.string().describe("e.g. 'Maintain the legacy business'"),
+    name: z.string().describe("e.g. 'Build the vehicles, fund the transformation'"),
     when: z.string().describe("Timing in game years, e.g. 'Years 1-3'; mark '(proposed)' unless the team set it"),
     goal: z.string(),
     entails: z.array(z.string()).describe("3-6 concrete moves / what it entails"),
@@ -22,7 +22,7 @@ export const StrategyDoc = z.object({
     heading: z.string(),
     paragraphs: z.array(z.string()),
     bullets: z.array(z.string()).describe("Optional list; empty if none"),
-  })).describe("In order: The opportunity; What Dragon Drive is; Competitive position (threat, advantage, data flywheel); Business model and portfolio (cards by horizon); Financial position (live figures); Capital plan and use of funds (financing stack, lender covenants); Governance and AI risk posture; Team and next 90 days; Key performance indicators"),
+  })).describe("In order: The opportunity; What Dragon Nexus is (the two-sided 4D-intelligence marketplace, Dragon Ledger, Dragon Credits); Competitive position (threat, advantage, marketplace flywheel); Business model and portfolio (cards by horizon); Financial position (live figures); Capital plan and use of funds (financing stack, lender covenants); Governance and AI risk posture; Team and next 90 days; Key performance indicators"),
   risks: z.array(z.string()).describe("Risk factors, most material first"),
   assumptions: z.array(z.string()).describe("Unconfirmed assumptions and [placeholders] the team must confirm"),
 });

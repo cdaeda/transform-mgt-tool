@@ -17,7 +17,7 @@ const Ideas = z.object({
     source_quote: z.string().describe("Exact words from the source that describe it; empty if the source gives none"),
     amount: z.string().describe("Amount as stated in the source, or [placeholder] - never invent"),
     cost: z.string().describe("Rate / cost as stated, or [placeholder]"),
-    fit: z.string().describe("How it could work for Flying Dragon / Dragon Drive now, and what it would fund (tie to our cards, ambition and short-term cash plan)"),
+    fit: z.string().describe("How it could work for Flying Dragon / Dragon Nexus now, and what it would fund (tie to our cards, ambition and short-term cash plan)"),
     risks: z.string().describe("Risks, incl. the lead lender's veto on new borrowing / asset sales / collateral-burning bets (the $900M 2030 debt), hidden leverage, and anything the source criticises"),
     recommendation: z.enum(["USE", "CONSIDER", "AVOID"]),
   })),

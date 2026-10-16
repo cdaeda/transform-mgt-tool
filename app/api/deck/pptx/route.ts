@@ -44,7 +44,7 @@ export async function GET() {
     if (s.kind === "title") {
       slide.background = { color: PLUM };
       slide.addText("TRANSFORM!  ·  " + DECK_EVENT.toUpperCase() + `  ·  YEAR ${st.current_year}`, { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
-      slide.addText("Dragon Drive", { x: 0.7, y: 2.4, w: 12, h: 1.4, fontFace: FONT, fontSize: 66, color: "FFFFFF", bold: true });
+      slide.addText("Dragon Nexus", { x: 0.7, y: 2.4, w: 12, h: 1.4, fontFace: FONT, fontSize: 66, color: "FFFFFF", bold: true });
       slide.addText(s.headline, { x: 0.7, y: 3.9, w: 11.5, h: 1.2, fontFace: FONT, fontSize: 24, color: "FFFFFF" });
       slide.addText(deck.subtitle, { x: 0.7, y: 5.3, w: 11.5, h: 0.8, fontFace: FONT, fontSize: 14, color: "D9CCE8" });
       slide.addText(`Presenter: ${who(s.speaker)}`, { x: 0.7, y: 6.7, w: 8, h: 0.4, fontFace: FONT, fontSize: 11, color: GOLD });
