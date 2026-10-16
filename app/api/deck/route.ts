@@ -16,7 +16,7 @@ async function outlookPrompt() {
   const [[st], snap] = await Promise.all([sql<Strategy[]>`select current_year, goal_year, outlook from strategy where id = 1`, getSnapshot()]);
   const o = { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) };
   const strats = await sql<PlanStrat[]>`select name, status, year, scale, category, effect from financing_ideas where status in ('locked', 'pitching')`;
-  return `${outlookText(outlookBaseFrom(snap, st.current_year), o)}\n\nFINANCING PLAN (by instrument; use it on the deliver slide - say plainly whether we sell shares, issue bonds or take loans, raise partner/customer money, and how we return cash):\n${financingPlanText(strats, o)}`;
+  return `${outlookText(outlookBaseFrom(snap, st.current_year), o)}\n\nFINANCING PLAN (by instrument; use it on the deliver slide - say plainly whether we sell shares, issue bonds or take loans, raise partner/customer money, and how we return cash; and say how the NEW VENTURES (Terralink space and fintech) are funded: the initial funding raised now - including any advisor-structured raise and its fee - and then the launch capital from the sale):\n${financingPlanText(strats, o)}`;
 }
 
 const ASK = `Write our deck for the ${EVENT} (management event card): "Prepare a short presentation outlining

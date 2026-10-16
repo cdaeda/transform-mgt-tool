@@ -19,7 +19,7 @@ export async function GET() {
       sql<S[]>`select * from strategy where id = 1`,
       sql<Card[]>`select id, type, status, capex, start_year, partner_verdict from cards`,
       sql<Team[]>`select team_number, plug_in from teams`,
-      sql<FinancingIdea[]>`select id, name, status, year, scale, effect, category, recommendation from financing_ideas where status <> 'rejected'`,
+      sql<FinancingIdea[]>`select id, name, status, year, scale, effect, category, recommendation, uses from financing_ideas where status <> 'rejected'`,
       sql<{ unpushed: Record<string, unknown>; updated_at: Date }[]>`select unpushed, updated_at from workbook where id = 1`,
       sql<{ verdict: string; summary: string; created_at: Date }[]>`select verdict, summary, created_at from audits order by created_at desc limit 1`,
     ]);
@@ -100,7 +100,7 @@ export async function GET() {
       strategyUpdated: st.updated_at,
       teams: snap.teams,
       goal: { year: st.goal_year ?? 3, cap: st.goal_cap ?? 50000 },
-      capital: financing.map((f) => ({ id: f.id, name: f.name, status: f.status, year: f.year, scale: f.scale, effect: f.effect, category: f.category })),
+      capital: financing.map((f) => ({ id: f.id, name: f.name, status: f.status, year: f.year, scale: f.scale, effect: f.effect, category: f.category, uses: f.uses })),
       // This year's starting point and the team's assumptions for the earnings outlook (lib/outlook.ts).
       outlookBase: outlookBaseFrom(snap, y),
       outlook: st.outlook ?? {},

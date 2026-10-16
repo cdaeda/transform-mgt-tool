@@ -53,4 +53,5 @@ assert.equal(sf.rows[2].fintech, 200e6);
 assert.equal(Math.round(sf.rows[1].launchSpace / (sf.rows[1].launchSpace + sf.rows[1].launchFintech) * 100), 75);
 const fps = financingPlan([], { ...o, saleYear: 2 });
 assert.equal(Math.round(fps.totals["Investing in space & fintech"]), Math.round((55000 - 925) * 0.4));
+assert.equal(financingPlan([{ name: "KingsRock", status: "locked", year: 3, category: "Advisor-structured financing", effect: { cash_m: 376, shares_m: 0, interest_m: 0 } }], { ...o, saleYear: 0 }).totals["Advisor-structured financing"], 376);
 console.log("outlook ok");

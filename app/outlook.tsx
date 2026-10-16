@@ -183,7 +183,7 @@ export function Infusion({ sim, o, cards, onChange }: { sim: SimBase; o: Outlook
 }
 
 // How we raise (and return) money, by instrument: committed (locked), in progress (pitching), or in our outlook.
-const INSTR_COLOR: Record<string, string> = { "Selling shares": "var(--explore)", "Bonds & loans": "var(--core)", "Partner & customer money": "var(--growth)", "Returning cash to shareholders": "var(--gold)", "The sale": "#d2353f", "Investing in space & fintech": "#0e7490" };
+const INSTR_COLOR: Record<string, string> = { "Selling shares": "var(--explore)", "Bonds & loans": "var(--core)", "Partner & customer money": "var(--growth)", "Returning cash to shareholders": "var(--gold)", "The sale": "#d2353f", "Investing in space & fintech": "#0e7490", "Advisor-structured financing": "#9333ea" };
 export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: Outlook; borrow: { ability: number; debt: number } | null }) {
   const { lines, totals } = financingPlan(strats, o);
   const ideas = strats.filter((s) => s.status === "idea" && s.effect && (s.effect.cash_m > 0 || s.effect.shares_m !== 0)).length;
@@ -193,7 +193,7 @@ export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: O
         <h3 className="text-lg">Our financing plan: how we raise and return money</h3>
         {borrow && <span className="text-xs text-zinc-500">Borrowing ability {money(borrow.ability)} (10 × revenue ÷ 2) · {money(borrow.debt)} drawn</span>}
       </div>
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {INSTRUMENTS.map((k) => (
           <div key={k} className="rounded border border-zinc-200 dark:border-zinc-800 p-2">
             <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: INSTR_COLOR[k] }} />{k}</p>
@@ -225,7 +225,9 @@ export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: O
 
 // Terralink's money, start to finish: launch capital into space and into fintech, what each earns per
 // year, and what the capital returns. The clear tie between the sale and the new businesses.
-export function MoneyMap({ rows, o }: { rows: OutlookRow[]; o: Outlook }) {
+export function MoneyMap({ rows, o, strats = [] }: { rows: OutlookRow[]; o: Outlook; strats?: PlanStrat[] }) {
+  // Initial funding raised for each venture before the sale (committed or pitching strategies' uses).
+  const seed = (k: string) => strats.filter((s) => ["locked", "pitching"].includes(s.status)).flatMap((s) => (s.uses ?? []).filter((u) => new RegExp(k, "i").test(u.what)).map((u) => ({ name: s.name, year: s.year, amount: u.amount_m * 1e6 })));
   const sale = rows.find((r) => r.year === o.saleYear);
   if (!sale) return null;
   const after = rows.filter((r) => r.year > o.saleYear);
@@ -234,7 +236,8 @@ export function MoneyMap({ rows, o }: { rows: OutlookRow[]; o: Outlook }) {
     return (
       <div className="rounded border border-zinc-200 dark:border-zinc-800 p-3 space-y-1">
         <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{k === "space" ? "Space" : "Fintech"}</p>
-        <p className="text-sm"><b className="font-display text-2xl tabular-nums">{money(capital)}</b> launch capital (Year {o.saleYear})</p>
+        {seed(k).map((x) => <p key={x.name} className="text-sm">{money(x.amount)} initial funding{x.year ? ` (Year ${x.year})` : ""} <span className="text-xs text-zinc-500">· {x.name}</span></p>)}
+        <p className="text-sm"><b className="font-display text-2xl tabular-nums">{money(capital)}</b> launch capital from the sale (Year {o.saleYear})</p>
         <p className="text-sm tabular-nums">{after.length ? after.map((r) => `Y${r.year} ${money(r[k])}`).join(" · ") : "no years after the sale in view"} revenue</p>
         <p className="text-xs text-zinc-500">To Year {rows[rows.length - 1].year}: revenue {money(rev)} − cost {money(cost)} = {money(rev - cost)}{capital > 0 ? ` · ${(((rev - cost) / capital) * 100).toFixed(1)}% of the capital back so far` : ""}</p>
         {rev === 0 && <p className="text-xs text-amber-700">Set {k} revenue and cost by year under Assumptions to project its return.</p>}
@@ -344,7 +347,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       {o.saleYear > 0 && <WhyPrice rows={rows} o={o} onChange={(b) => set({ bridge: b })} />}
       <Ladder r={last} roi={roi} o={o} />
       <FinancingPlan strats={ic.capital} o={o} borrow={ic.borrow} />
-      {o.saleYear > 0 && <MoneyMap rows={rows} o={o} />}
+      {o.saleYear > 0 && <MoneyMap rows={rows} o={o} strats={ic.capital} />}
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
           <b>Year {sale.year}: the dragon is shedding.</b> {sale.events.map((e) => e.label).join(" · ")}.

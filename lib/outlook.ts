@@ -215,15 +215,17 @@ export function infusionSlide(sim: SimBase, o: Outlook, cards: InfusionCard[]) {
 
 // Our financing plan by instrument: the capital strategies we're pitching or have locked (classified by
 // what they do to cash, shares and interest), plus the outlook's infusion, buybacks, dividends and sale.
-export type PlanStrat = { name: string; status: string; year: number | null; scale?: number; category?: string; effect: { cash_m: number; shares_m: number; interest_m: number } | null };
-export const INSTRUMENTS = ["Selling shares", "Bonds & loans", "Partner & customer money", "Returning cash to shareholders", "The sale", "Investing in space & fintech"] as const;
+export type PlanStrat = { name: string; status: string; year: number | null; scale?: number; category?: string; effect: { cash_m: number; shares_m: number; interest_m: number } | null; uses?: { what: string; amount_m: number }[] };
+export const INSTRUMENTS = ["Selling shares", "Bonds & loans", "Advisor-structured financing", "Partner & customer money", "Returning cash to shareholders", "The sale", "Investing in space & fintech"] as const;
 export type Instrument = (typeof INSTRUMENTS)[number];
 export function financingPlan(strats: PlanStrat[], o: Outlook) {
   const lines: { instrument: Instrument; name: string; year: number | null; amountM: number; status: "committed" | "in progress" | "outlook"; note: string }[] = [];
   for (const s of strats) {
     if (!s.effect || !["locked", "pitching"].includes(s.status)) continue;
     const e = s.effect, x = s.scale ?? 1, status = s.status === "locked" ? "committed" : "in progress";
-    const instrument: Instrument | null = e.shares_m < 0 ? "Returning cash to shareholders" : e.shares_m > 0 ? "Selling shares" : e.interest_m > 0 ? "Bonds & loans" : e.cash_m > 0 ? "Partner & customer money" : null;
+    // An advisor-structured raise (e.g. KingsRock) keeps its own line until its instrument is chosen.
+    const instrument: Instrument | null = /advisor-structured/i.test(s.category ?? "") ? "Advisor-structured financing"
+      : e.shares_m < 0 ? "Returning cash to shareholders" : e.shares_m > 0 ? "Selling shares" : e.interest_m > 0 ? "Bonds & loans" : e.cash_m > 0 ? "Partner & customer money" : null;
     if (!instrument) continue; // ratings campaigns and the like raise no money
     lines.push({ instrument, name: s.name, year: s.year, amountM: Math.abs(e.cash_m * x), status,
       note: [e.shares_m ? `${e.shares_m > 0 ? "+" : ""}${(e.shares_m * x).toFixed(0)}M shares` : "", e.interest_m > 0 ? `$${(e.interest_m * x).toFixed(1)}M/yr interest` : ""].filter(Boolean).join(" · ") });
