@@ -200,3 +200,41 @@ export function infusionSlide(sim: SimBase, o: Outlook, cards: InfusionCard[]) {
     ],
   };
 }
+
+// Our financing plan by instrument: the capital strategies we're pitching or have locked (classified by
+// what they do to cash, shares and interest), plus the outlook's infusion, buybacks, dividends and sale.
+export type PlanStrat = { name: string; status: string; year: number | null; scale?: number; category?: string; effect: { cash_m: number; shares_m: number; interest_m: number } | null };
+export const INSTRUMENTS = ["Selling shares", "Bonds & loans", "Partner & customer money", "Returning cash to shareholders", "The sale"] as const;
+export type Instrument = (typeof INSTRUMENTS)[number];
+export function financingPlan(strats: PlanStrat[], o: Outlook) {
+  const lines: { instrument: Instrument; name: string; year: number | null; amountM: number; status: "committed" | "in progress" | "outlook"; note: string }[] = [];
+  for (const s of strats) {
+    if (!s.effect || !["locked", "pitching"].includes(s.status)) continue;
+    const e = s.effect, x = s.scale ?? 1, status = s.status === "locked" ? "committed" : "in progress";
+    const instrument: Instrument | null = e.shares_m < 0 ? "Returning cash to shareholders" : e.shares_m > 0 ? "Selling shares" : e.interest_m > 0 ? "Bonds & loans" : e.cash_m > 0 ? "Partner & customer money" : null;
+    if (!instrument) continue; // ratings campaigns and the like raise no money
+    lines.push({ instrument, name: s.name, year: s.year, amountM: Math.abs(e.cash_m * x), status,
+      note: [e.shares_m ? `${e.shares_m > 0 ? "+" : ""}${(e.shares_m * x).toFixed(0)}M shares` : "", e.interest_m > 0 ? `$${(e.interest_m * x).toFixed(1)}M/yr interest` : ""].filter(Boolean).join(" · ") });
+  }
+  if (o.infusion && o.infusion.amountM > 0)
+    lines.push({ instrument: "Selling shares", name: `Capital infusion at $${o.infusion.price.toFixed(2)} a share`, year: o.infusion.year, amountM: o.infusion.amountM, status: "outlook", note: `${(o.infusion.amountM / Math.max(0.01, o.infusion.price)).toFixed(0)}M new shares` });
+  o.buybackM.forEach((v, i) => v > 0 && lines.push({ instrument: "Returning cash to shareholders", name: "Share buyback", year: i + 1, amountM: v, status: "outlook", note: "lifts EPS" }));
+  if (o.payout > 0) lines.push({ instrument: "Returning cash to shareholders", name: `Dividend policy: ${o.payout}% of profit`, year: null, amountM: 0, status: "outlook", note: o.payout >= 80 ? "aggressive" : o.payout >= 30 ? "moderate" : "light" });
+  if (o.saleYear) {
+    const net = o.salePriceB * 1000 - o.debtM;
+    lines.push({ instrument: "The sale", name: `Sell the vehicle + Dragon Nexus business for $${o.salePriceB}B`, year: o.saleYear, amountM: o.salePriceB * 1000, status: "outlook", note: `repays $${o.debtM}M of debt` });
+    if (o.specialDivPct) lines.push({ instrument: "Returning cash to shareholders", name: "Special dividend from the sale", year: o.saleYear, amountM: (net * o.specialDivPct) / 100, status: "outlook", note: `${o.specialDivPct}% of net proceeds` });
+    if (o.buybackPct) lines.push({ instrument: "Returning cash to shareholders", name: "Buyback from the sale", year: o.saleYear, amountM: (net * o.buybackPct) / 100, status: "outlook", note: `${o.buybackPct}% of net proceeds` });
+  }
+  const totals = Object.fromEntries(INSTRUMENTS.map((k) => [k, lines.filter((l) => l.instrument === k).reduce((s, l) => s + l.amountM, 0)])) as Record<Instrument, number>;
+  return { lines, totals };
+}
+
+export function financingPlanText(strats: PlanStrat[], o: Outlook) {
+  const { lines } = financingPlan(strats, o);
+  if (!lines.length) return "No financing instrument is pitching, locked or in the outlook yet.";
+  return INSTRUMENTS.map((k) => {
+    const ls = lines.filter((l) => l.instrument === k);
+    return ls.length ? `${k}: ${ls.map((l) => `${l.name}${l.amountM ? ` $${l.amountM.toFixed(0)}M` : ""}${l.year ? ` (Year ${l.year})` : ""} [${l.status}]${l.note ? ` - ${l.note}` : ""}`).join("; ")}` : `${k}: none planned`;
+  }).join("\n");
+}

@@ -4,7 +4,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { buildContext } from "@/lib/context";
 import { listRounds } from "@/lib/rounds";
 import { sql, type Strategy } from "@/lib/db";
-import { defaultOutlook, outlookBaseFrom, outlookText } from "@/lib/outlook";
+import { defaultOutlook, financingPlanText, outlookBaseFrom, outlookText, type PlanStrat } from "@/lib/outlook";
 import { getSnapshot } from "@/lib/snapshot";
 import { Deck, DECK_EVENT as EVENT } from "@/lib/deck";
 
@@ -14,7 +14,9 @@ const client = new Anthropic();
 
 async function outlookPrompt() {
   const [[st], snap] = await Promise.all([sql<Strategy[]>`select current_year, goal_year, outlook from strategy where id = 1`, getSnapshot()]);
-  return outlookText(outlookBaseFrom(snap, st.current_year), { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) });
+  const o = { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) };
+  const strats = await sql<PlanStrat[]>`select name, status, year, scale, category, effect from financing_ideas where status in ('locked', 'pitching')`;
+  return `${outlookText(outlookBaseFrom(snap, st.current_year), o)}\n\nFINANCING PLAN (by instrument; use it on the deliver slide - say plainly whether we sell shares, issue bonds or take loans, raise partner/customer money, and how we return cash):\n${financingPlanText(strats, o)}`;
 }
 
 const ASK = `Write our deck for the ${EVENT} (management event card): "Prepare a short presentation outlining

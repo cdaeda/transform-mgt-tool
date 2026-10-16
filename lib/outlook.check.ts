@@ -1,6 +1,6 @@
 // node lib/outlook.check.ts - earnings, EPS/price/DPS, buybacks, the sale and the investor's return add up.
 import assert from "node:assert/strict";
-import { bridge, defaultBridge, defaultOutlook, outlook } from "./outlook.ts";
+import { bridge, defaultBridge, defaultOutlook, financingPlan, outlook } from "./outlook.ts";
 
 const base = { now: 1, vehicleRev: 100e6, vehicleCost: 60e6, exploreRev: 0, exploreCost: 0, costBase: 10e6, interest: 5e6, depreciation: 5e6, oneTime: 0, shares: 1e9 };
 const o = defaultOutlook(1, 3);
@@ -36,4 +36,15 @@ assert.equal(bx.parts[0].v, 60e6 * 0.8 * 15); // vehicle earnings x P/E
 assert.equal(bx.standalone, 720e6 + 2e9 + 1e9 + 5e9);
 assert.equal(bx.total, bx.standalone * 1.2);
 assert.equal(bx.gap, 60e9 - bx.total);
+// Financing plan: strategies classified by instrument; ideas and rejected ones are left out.
+const fp = financingPlan([
+  { name: "Bond", status: "locked", year: 2, effect: { cash_m: 250, shares_m: 0, interest_m: 15 } },
+  { name: "Gov equity", status: "pitching", year: 2, effect: { cash_m: 100, shares_m: 50, interest_m: 0 } },
+  { name: "Prepaid", status: "pitching", year: 3, effect: { cash_m: 40, shares_m: 0, interest_m: 0 } },
+  { name: "Idea", status: "idea", year: 2, effect: { cash_m: 999, shares_m: 0, interest_m: 0 } },
+], { ...o, saleYear: 0, payout: 0 });
+assert.equal(fp.totals["Bonds & loans"], 250);
+assert.equal(fp.totals["Selling shares"], 100);
+assert.equal(fp.totals["Partner & customer money"], 40);
+assert.equal(fp.lines.length, 3);
 console.log("outlook ok");

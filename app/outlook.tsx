@@ -1,11 +1,12 @@
 "use client";
 
+import { INSTRUMENTS, financingPlan, type PlanStrat } from "@/lib/outlook";
 import { DIVIDEND_PRESETS, NEW_NAME, bridge, defaultBridge, defaultOutlook, outlook, type Bridge, type Outlook, type OutlookBase, type OutlookRow } from "@/lib/outlook";
 import { useEffect, useState } from "react";
 import { refreshOverview, useOverview } from "./overview-store";
 import { infusion, type Base as SimBase, type InfusionCard } from "@/lib/simulate";
 
-type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] }; sim?: SimBase };
+type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] }; sim?: SimBase; capital?: PlanStrat[]; plan?: { revenue: number; debt: number } };
 type Roi = ReturnType<typeof outlook>["roi"];
 
 const money = (n: number) => {
@@ -20,7 +21,7 @@ export function useInvestorCase(version: number) {
   const d = o?.data?.outlookBase ? o.data : null;
   if (!d) return null;
   const saved: Outlook = { ...defaultOutlook(d.year, d.goal.year), ...(d.outlook ?? {}) };
-  return { sim: d.sim ?? null, base: d.outlookBase, game: d.certificate?.caps ?? [], saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
+  return { capital: d.capital ?? [], borrow: d.plan ? { ability: (10 * d.plan.revenue) / 2, debt: d.plan.debt } : null, sim: d.sim ?? null, base: d.outlookBase, game: d.certificate?.caps ?? [], saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
 }
 
 // Top-down, step by step: what we earn, what the market pays for it, and what a shareholder gets.
@@ -181,6 +182,47 @@ export function Infusion({ sim, o, cards, onChange }: { sim: SimBase; o: Outlook
   );
 }
 
+// How we raise (and return) money, by instrument: committed (locked), in progress (pitching), or in our outlook.
+const INSTR_COLOR: Record<string, string> = { "Selling shares": "var(--explore)", "Bonds & loans": "var(--core)", "Partner & customer money": "var(--growth)", "Returning cash to shareholders": "var(--gold)", "The sale": "#d2353f" };
+export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: Outlook; borrow: { ability: number; debt: number } | null }) {
+  const { lines, totals } = financingPlan(strats, o);
+  const ideas = strats.filter((s) => s.status === "idea" && s.effect && (s.effect.cash_m > 0 || s.effect.shares_m !== 0)).length;
+  return (
+    <section className="rounded-lg bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 p-3 space-y-3" aria-label="Financing plan">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-lg">Our financing plan: how we raise and return money</h3>
+        {borrow && <span className="text-xs text-zinc-500">Borrowing ability {money(borrow.ability)} (10 × revenue ÷ 2) · {money(borrow.debt)} drawn</span>}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-5">
+        {INSTRUMENTS.map((k) => (
+          <div key={k} className="rounded border border-zinc-200 dark:border-zinc-800 p-2">
+            <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: INSTR_COLOR[k] }} />{k}</p>
+            <p className="font-display text-xl tabular-nums">{totals[k] ? money(totals[k] * 1e6) : "—"}</p>
+            <p className="text-xs text-zinc-500">{lines.filter((l) => l.instrument === k).length || "none"} planned</p>
+          </div>
+        ))}
+      </div>
+      {lines.length ? (
+        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800 text-sm">
+          {INSTRUMENTS.flatMap((k) => lines.filter((l) => l.instrument === k)).map((l, i) => (
+            <li key={i} className="py-1.5 flex flex-wrap items-baseline gap-x-3">
+              <span className="w-2.5 h-2.5 rounded-sm self-center" style={{ background: INSTR_COLOR[l.instrument] }} />
+              <span className="flex-1 min-w-48">{l.name}<span className="text-xs text-zinc-500">{l.note ? ` · ${l.note}` : ""}</span></span>
+              <span className="tabular-nums">{l.amountM ? money(l.amountM * 1e6) : ""}</span>
+              <span className="text-xs text-zinc-500 w-16">{l.year ? `Year ${l.year}` : "each year"}</span>
+              <span className={`chip !text-[10px] ${l.status === "committed" ? "!bg-green-700" : l.status === "in progress" ? "!bg-amber-600" : "!bg-indigo-900"}`}>{l.status}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-sm text-zinc-500">Nothing is pitching or locked yet.</p>}
+      <p className="text-xs text-zinc-500">
+        Committed = locked on the <a href="#capital/plan-strategies" className="underline">capital board</a>; in progress = pitching; outlook = this Investor case (infusion, buybacks, dividends, sale).
+        {ideas > 0 && ` ${ideas} more idea${ideas === 1 ? "" : "s"} on the board could raise money: pitch or lock them to add them here.`} New borrowing needs the lead lender&rsquo;s consent.
+      </p>
+    </section>
+  );
+}
+
 // What the company is worth each year, and what that value is made of.
 export function ValuationPath({ rows, o, game }: { rows: OutlookRow[]; o: Outlook; game: number[] }) {
   const sale = o.saleYear ? o.salePriceB * 1e9 : 0;
@@ -274,6 +316,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       {ic.sim && <Infusion sim={ic.sim} o={o} cards={cards} onChange={(inf) => set({ infusion: inf })} />}
       {o.saleYear > 0 && <WhyPrice rows={rows} o={o} onChange={(b) => set({ bridge: b })} />}
       <Ladder r={last} roi={roi} o={o} />
+      <FinancingPlan strats={ic.capital} o={o} borrow={ic.borrow} />
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
           <b>Year {sale.year}: the dragon is shedding.</b> {sale.events.map((e) => e.label).join(" · ")}.
