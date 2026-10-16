@@ -14,8 +14,11 @@ export type Outlook = {
   nexusGmv: number[]; // $M of Dragon Nexus marketplace transactions per year (index = game year - 1)
   takeRate: number; // % we keep of each transaction (the strategy's illustrative example: 20%)
   nexusCost: number[]; // $M/yr to run Dragon Nexus
-  otherRevenue: number[]; // $M/yr space & fintech (Terralink) revenue
-  otherCost: number[]; // $M/yr space & fintech cost
+  otherRevenue: number[]; // $M/yr Terralink SPACE revenue
+  otherCost: number[]; // $M/yr Terralink space cost
+  fintechRevenue?: number[]; // $M/yr Terralink FINTECH revenue
+  fintechCost?: number[]; // $M/yr Terralink fintech cost
+  spaceSharePct?: number; // % of the launch capital that goes to space (the rest to fintech)
   costBaseGrowth: number; // %/yr on the cost base
   interest: number[]; // $M/yr; empty years use this year's workbook interest
   tax: number; // %
@@ -50,6 +53,7 @@ export const defaultOutlook = (now: number, goalYear: number): Outlook => ({
   toYear: Math.max(goalYear, now + 2), vehicleGrowth: 0, nexusGmv: z(), takeRate: 20, nexusCost: z(), otherRevenue: z(), otherCost: z(),
   costBaseGrowth: 0, interest: [], tax: 21, payout: 0, buybackM: z(), newSharesM: z(), pe: 15, entryPrice: 1,
   saleYear: goalYear, salePriceB: 55, debtM: 925, specialDivPct: 30, buybackPct: 30, costBaseKeptPct: 50,
+  fintechRevenue: z(), fintechCost: z(), spaceSharePct: 50,
 });
 
 const M = 1e6;
@@ -63,7 +67,9 @@ export function outlook(b: OutlookBase, o: Outlook) {
     const wbRev = b.vehicleRevY?.[i] ?? b.vehicleRev, wbCost = b.vehicleCostY?.[i] ?? b.vehicleCost;
     const vehicles = sold ? 0 : wbRev * g, vehicleCost = sold ? 0 : wbCost * g;
     const nexus = sold ? 0 : (((o.nexusGmv[i] ?? 0) * o.takeRate) / 100) * M, nexusCost = sold ? 0 : (o.nexusCost[i] ?? 0) * M;
-    const other = (o.otherRevenue[i] ?? 0) * M + (t === 0 ? b.exploreRev : 0), otherCost = (o.otherCost[i] ?? 0) * M + (t === 0 ? b.exploreCost : 0);
+    const space = (o.otherRevenue[i] ?? 0) * M, fintech = (o.fintechRevenue?.[i] ?? 0) * M;
+    const spaceCost = (o.otherCost[i] ?? 0) * M, fintechCost = (o.fintechCost?.[i] ?? 0) * M;
+    const other = space + fintech + (t === 0 ? b.exploreRev : 0), otherCost = spaceCost + fintechCost + (t === 0 ? b.exploreCost : 0);
     const oneTime = t === 0 ? b.oneTime : 0;
     const revenue = vehicles + nexus + other + oneTime;
     const costBase = b.costBase * (1 + o.costBaseGrowth / 100) ** t * (sold ? o.costBaseKeptPct / 100 : 1);
@@ -92,15 +98,21 @@ export function outlook(b: OutlookBase, o: Outlook) {
       events.push({ label: `Sell the vehicle + Dragon Nexus business for $${o.salePriceB}B, repay $${o.debtM}M of debt` });
       if (special) events.push({ label: `Special dividend $${special.toFixed(2)} a share`, dps: special });
       if (bb) events.push({ label: `Buy back $${(bb / 1e9).toFixed(1)}B of shares`, sharesM: -n / M });
-      events.push({ label: `$${((saleProceeds * (100 - o.specialDivPct - o.buybackPct)) / 100 / 1e9).toFixed(1)}B launches ${NEW_NAME}` });
+      const launch = (saleProceeds * (100 - o.specialDivPct - o.buybackPct)) / 100, sp = (o.spaceSharePct ?? 50) / 100;
+      events.push({ label: `$${(launch / 1e9).toFixed(1)}B launches ${NEW_NAME}: $${((launch * sp) / 1e9).toFixed(1)}B space, $${((launch * (1 - sp)) / 1e9).toFixed(1)}B fintech` });
     }
-    if (o.saleYear === year) netCash = (saleProceeds * Math.max(0, 100 - o.specialDivPct - o.buybackPct)) / 100;
+    let launchSpace = 0, launchFintech = 0;
+    if (o.saleYear === year) {
+      netCash = (saleProceeds * Math.max(0, 100 - o.specialDivPct - o.buybackPct)) / 100;
+      launchSpace = (netCash * (o.spaceSharePct ?? 50)) / 100;
+      launchFintech = netCash - launchSpace;
+    }
     else if (o.saleYear && year > o.saleYear) netCash += net - Math.max(0, net) * (o.payout / 100) - regularBuyback;
     const eps = net / shares;
     const cashPerShare = Math.max(0, netCash) / shares;
     const price = Math.max(0, eps * o.pe) + cashPerShare; // earnings value + the cash Terralink holds
     cumDps += dps;
-    rows.push({ year, company: sold ? NEW_NAME : "Flying Dragon", vehicles, nexus, gmv: sold ? 0 : (o.nexusGmv[i] ?? 0) * M, other, oneTime, revenue, vehicleCost, nexusCost, otherCost, costBase, ebitda, interest, depreciation, tax, net, shares, eps, price, cashPerShare, dps, cumDps, saleProceeds, events,
+    rows.push({ year, company: sold ? NEW_NAME : "Flying Dragon", vehicles, nexus, gmv: sold ? 0 : (o.nexusGmv[i] ?? 0) * M, other, oneTime, revenue, vehicleCost, nexusCost, otherCost, costBase, ebitda, interest, depreciation, tax, net, shares, eps, price, cashPerShare, dps, cumDps, saleProceeds, events, space, fintech, spaceCost, fintechCost, launchSpace, launchFintech,
       // Valuation = what the market pays for the earnings (EPS x P/E) plus the cash Terralink holds.
       earningsValue: Math.max(0, eps * o.pe) * shares, cashValue: Math.max(0, netCash), valuation: price * shares });
   }
@@ -132,7 +144,7 @@ export function outlookBaseFrom(snap: SnapLike, now: number): OutlookBase {
 export function outlookText(b: OutlookBase, o: Outlook) {
   const { rows, roi } = outlook(b, o);
   const m = (n: number) => `$${(n / 1e6).toFixed(1)}M`, p = (n: number) => `$${n.toFixed(2)}`;
-  return `P/E ${o.pe}x, regular payout ${o.payout}%, entry price ${p(o.entryPrice)}.\n` + rows.map((r) => `Y${r.year} ${r.company}${r.year === b.now ? " (workbook)" : " (team assumption)"}: revenue ${m(r.revenue)} [vehicles ${m(r.vehicles)}, Dragon Nexus ${m(r.nexus)} = ${o.takeRate}% of ${m(r.gmv)} GMV, space & fintech ${m(r.other)}], EBITDA ${m(r.ebitda)}, net profit ${m(r.net)}, shares ${(r.shares / 1e6).toFixed(0)}M, EPS ${p(r.eps)}, share price ${p(r.price)}, DPS ${p(r.dps)}${r.events.length ? ` - ${r.events.map((e) => e.label).join("; ")}` : ""}`).join("\n") +
+  return `P/E ${o.pe}x, regular payout ${o.payout}%, entry price ${p(o.entryPrice)}.\n` + rows.map((r) => `Y${r.year} ${r.company}${r.year === b.now ? " (workbook)" : " (team assumption)"}: revenue ${m(r.revenue)} [vehicles ${m(r.vehicles)}, Dragon Nexus ${m(r.nexus)} = ${o.takeRate}% of ${m(r.gmv)} GMV, space ${m(r.space)}, fintech ${m(r.fintech)}], EBITDA ${m(r.ebitda)}, net profit ${m(r.net)}, shares ${(r.shares / 1e6).toFixed(0)}M, EPS ${p(r.eps)}, share price ${p(r.price)}, DPS ${p(r.dps)}${r.events.length ? ` - ${r.events.map((e) => e.label).join("; ")}` : ""}`).join("\n") +
     (roi ? `\nINVESTOR RETURN: entry ${p(o.entryPrice)} -> final share price ${p(roi.endPrice)} + dividends ${p(roi.dividends)} = ${roi.multiple.toFixed(1)}x, ${roi.annualPct.toFixed(0)}%/yr over ${roi.years} years.` : "");
 }
 
@@ -204,7 +216,7 @@ export function infusionSlide(sim: SimBase, o: Outlook, cards: InfusionCard[]) {
 // Our financing plan by instrument: the capital strategies we're pitching or have locked (classified by
 // what they do to cash, shares and interest), plus the outlook's infusion, buybacks, dividends and sale.
 export type PlanStrat = { name: string; status: string; year: number | null; scale?: number; category?: string; effect: { cash_m: number; shares_m: number; interest_m: number } | null };
-export const INSTRUMENTS = ["Selling shares", "Bonds & loans", "Partner & customer money", "Returning cash to shareholders", "The sale"] as const;
+export const INSTRUMENTS = ["Selling shares", "Bonds & loans", "Partner & customer money", "Returning cash to shareholders", "The sale", "Investing in space & fintech"] as const;
 export type Instrument = (typeof INSTRUMENTS)[number];
 export function financingPlan(strats: PlanStrat[], o: Outlook) {
   const lines: { instrument: Instrument; name: string; year: number | null; amountM: number; status: "committed" | "in progress" | "outlook"; note: string }[] = [];
@@ -225,6 +237,11 @@ export function financingPlan(strats: PlanStrat[], o: Outlook) {
     lines.push({ instrument: "The sale", name: `Sell the vehicle + Dragon Nexus business for $${o.salePriceB}B`, year: o.saleYear, amountM: o.salePriceB * 1000, status: "outlook", note: `repays $${o.debtM}M of debt` });
     if (o.specialDivPct) lines.push({ instrument: "Returning cash to shareholders", name: "Special dividend from the sale", year: o.saleYear, amountM: (net * o.specialDivPct) / 100, status: "outlook", note: `${o.specialDivPct}% of net proceeds` });
     if (o.buybackPct) lines.push({ instrument: "Returning cash to shareholders", name: "Buyback from the sale", year: o.saleYear, amountM: (net * o.buybackPct) / 100, status: "outlook", note: `${o.buybackPct}% of net proceeds` });
+    const launch = (net * Math.max(0, 100 - o.specialDivPct - o.buybackPct)) / 100, sp = (o.spaceSharePct ?? 50) / 100;
+    if (launch > 0) {
+      lines.push({ instrument: "Investing in space & fintech", name: `${NEW_NAME} space launch capital`, year: o.saleYear, amountM: launch * sp, status: "outlook", note: `${Math.round(sp * 100)}% of the launch capital` });
+      lines.push({ instrument: "Investing in space & fintech", name: `${NEW_NAME} fintech launch capital`, year: o.saleYear, amountM: launch * (1 - sp), status: "outlook", note: `${Math.round((1 - sp) * 100)}% of the launch capital` });
+    }
   }
   const totals = Object.fromEntries(INSTRUMENTS.map((k) => [k, lines.filter((l) => l.instrument === k).reduce((s, l) => s + l.amountM, 0)])) as Record<Instrument, number>;
   return { lines, totals };

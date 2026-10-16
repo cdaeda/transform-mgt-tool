@@ -183,7 +183,7 @@ export function Infusion({ sim, o, cards, onChange }: { sim: SimBase; o: Outlook
 }
 
 // How we raise (and return) money, by instrument: committed (locked), in progress (pitching), or in our outlook.
-const INSTR_COLOR: Record<string, string> = { "Selling shares": "var(--explore)", "Bonds & loans": "var(--core)", "Partner & customer money": "var(--growth)", "Returning cash to shareholders": "var(--gold)", "The sale": "#d2353f" };
+const INSTR_COLOR: Record<string, string> = { "Selling shares": "var(--explore)", "Bonds & loans": "var(--core)", "Partner & customer money": "var(--growth)", "Returning cash to shareholders": "var(--gold)", "The sale": "#d2353f", "Investing in space & fintech": "#0e7490" };
 export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: Outlook; borrow: { ability: number; debt: number } | null }) {
   const { lines, totals } = financingPlan(strats, o);
   const ideas = strats.filter((s) => s.status === "idea" && s.effect && (s.effect.cash_m > 0 || s.effect.shares_m !== 0)).length;
@@ -193,7 +193,7 @@ export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: O
         <h3 className="text-lg">Our financing plan: how we raise and return money</h3>
         {borrow && <span className="text-xs text-zinc-500">Borrowing ability {money(borrow.ability)} (10 × revenue ÷ 2) · {money(borrow.debt)} drawn</span>}
       </div>
-      <div className="grid gap-2 sm:grid-cols-5">
+      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {INSTRUMENTS.map((k) => (
           <div key={k} className="rounded border border-zinc-200 dark:border-zinc-800 p-2">
             <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: INSTR_COLOR[k] }} />{k}</p>
@@ -219,6 +219,33 @@ export function FinancingPlan({ strats, o, borrow }: { strats: PlanStrat[]; o: O
         Committed = locked on the <a href="#capital/plan-strategies" className="underline">capital board</a>; in progress = pitching; outlook = this Investor case (infusion, buybacks, dividends, sale).
         {ideas > 0 && ` ${ideas} more idea${ideas === 1 ? "" : "s"} on the board could raise money: pitch or lock them to add them here.`} New borrowing needs the lead lender&rsquo;s consent.
       </p>
+    </section>
+  );
+}
+
+// Terralink's money, start to finish: launch capital into space and into fintech, what each earns per
+// year, and what the capital returns. The clear tie between the sale and the new businesses.
+export function MoneyMap({ rows, o }: { rows: OutlookRow[]; o: Outlook }) {
+  const sale = rows.find((r) => r.year === o.saleYear);
+  if (!sale) return null;
+  const after = rows.filter((r) => r.year > o.saleYear);
+  const line = (k: "space" | "fintech", capital: number, color: string) => {
+    const rev = after.reduce((s, r) => s + r[k], 0), cost = after.reduce((s, r) => s + (k === "space" ? r.spaceCost : r.fintechCost), 0);
+    return (
+      <div className="rounded border border-zinc-200 dark:border-zinc-800 p-3 space-y-1">
+        <p className="eyebrow flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />{k === "space" ? "Space" : "Fintech"}</p>
+        <p className="text-sm"><b className="font-display text-2xl tabular-nums">{money(capital)}</b> launch capital (Year {o.saleYear})</p>
+        <p className="text-sm tabular-nums">{after.length ? after.map((r) => `Y${r.year} ${money(r[k])}`).join(" · ") : "no years after the sale in view"} revenue</p>
+        <p className="text-xs text-zinc-500">To Year {rows[rows.length - 1].year}: revenue {money(rev)} − cost {money(cost)} = {money(rev - cost)}{capital > 0 ? ` · ${(((rev - cost) / capital) * 100).toFixed(1)}% of the capital back so far` : ""}</p>
+        {rev === 0 && <p className="text-xs text-amber-700">Set {k} revenue and cost by year under Assumptions to project its return.</p>}
+      </div>
+    );
+  };
+  return (
+    <section className="rounded-lg bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 p-3 space-y-2" aria-label="Terralink money map">
+      <h3 className="text-lg">Where the sale money goes: {NEW_NAME}&rsquo;s space and fintech</h3>
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">${o.salePriceB}B sale → repay ${o.debtM}M debt → {o.specialDivPct}% special dividend + {o.buybackPct}% buyback to shareholders → <b>{money(sale.launchSpace + sale.launchFintech)} launches {NEW_NAME}</b>.</p>
+      <div className="grid gap-2 sm:grid-cols-2">{line("space", sale.launchSpace, "#0e7490")}{line("fintech", sale.launchFintech, "var(--explore)")}</div>
     </section>
   );
 }
@@ -274,7 +301,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
   const sale = rows.find((r) => r.year === o.saleYear);
   const set = (p: Partial<Outlook>) => setEdit({ ...o, ...p });
   const years = rows.map((r) => r.year);
-  type Arr = "nexusGmv" | "nexusCost" | "otherRevenue" | "otherCost" | "newSharesM" | "interest" | "buybackM";
+  type Arr = "nexusGmv" | "nexusCost" | "otherRevenue" | "otherCost" | "fintechRevenue" | "fintechCost" | "newSharesM" | "interest" | "buybackM";
   const arr = (k: Arr, y: number, v: number) => { const a = [...(o[k] ?? [])]; a[y - 1] = v; set({ [k]: a }); };
   const save = async () => {
     const r = await fetch("/api/strategy", { method: "PUT", body: JSON.stringify({ outlook: o }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
@@ -317,6 +344,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       {o.saleYear > 0 && <WhyPrice rows={rows} o={o} onChange={(b) => set({ bridge: b })} />}
       <Ladder r={last} roi={roi} o={o} />
       <FinancingPlan strats={ic.capital} o={o} borrow={ic.borrow} />
+      {o.saleYear > 0 && <MoneyMap rows={rows} o={o} />}
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
           <b>Year {sale.year}: the dragon is shedding.</b> {sale.events.map((e) => e.label).join(" · ")}.
@@ -329,7 +357,9 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
           <tbody>
             {line("Vehicles", (r) => money(r.vehicles))}
             {line("Dragon Nexus (take of GMV)", (r) => money(r.nexus))}
-            {line(`Space & fintech (${NEW_NAME})`, (r) => money(r.other + r.oneTime))}
+            {line(`Space (${NEW_NAME})`, (r) => money(r.space))}
+            {line(`Fintech (${NEW_NAME})`, (r) => money(r.fintech))}
+            {line("Other & one-time", (r) => money(r.other - r.space - r.fintech + r.oneTime))}
             {line("Revenue", (r) => money(r.revenue), true)}
             {line("− operating costs & cost base", (r) => money(-(r.vehicleCost + r.nexusCost + r.otherCost + r.costBase)))}
             {line("EBITDA", (r) => money(r.ebitda), true, (r) => r.ebitda < 0)}
@@ -370,9 +400,9 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
             <table className="text-sm">
               <thead><tr><th />{years.map((y) => <th key={y} className="eyebrow text-zinc-500 px-1">Year {y}</th>)}</tr></thead>
               <tbody>
-                {([["Nexus marketplace GMV ($M)", "nexusGmv"], ["Nexus running cost ($M)", "nexusCost"], [`${NEW_NAME} space & fintech revenue ($M)`, "otherRevenue"], [`${NEW_NAME} space & fintech cost ($M)`, "otherCost"], ["Share buybacks ($M)", "buybackM"], ["Interest ($M; blank = workbook)", "interest"], ["New shares issued (M)", "newSharesM"]] as const).map(([l, k]) => (
+                {([["Nexus marketplace GMV ($M)", "nexusGmv"], ["Nexus running cost ($M)", "nexusCost"], [`${NEW_NAME} space revenue ($M)`, "otherRevenue"], [`${NEW_NAME} space cost ($M)`, "otherCost"], [`${NEW_NAME} fintech revenue ($M)`, "fintechRevenue"], [`${NEW_NAME} fintech cost ($M)`, "fintechCost"], ["Share buybacks ($M)", "buybackM"], ["Interest ($M; blank = workbook)", "interest"], ["New shares issued (M)", "newSharesM"]] as const).map(([l, k]) => (
                   <tr key={k}><th scope="row" className="text-left font-normal pr-2 whitespace-nowrap">{l}</th>
-                    {years.map((y) => <td key={y} className="px-0.5">{y === ic.base.now && ["nexusCost", "otherCost", "interest", "newSharesM"].includes(k) ? <span className="text-xs text-zinc-400 px-2">workbook</span> : num(o[k]?.[y - 1] ?? 0, (n) => arr(k, y, n), `${l} Year ${y}`, 5)}</td>)}
+                    {years.map((y) => <td key={y} className="px-0.5">{y === ic.base.now && ["nexusCost", "otherCost", "fintechCost", "interest", "newSharesM"].includes(k) ? <span className="text-xs text-zinc-400 px-2">workbook</span> : num(o[k]?.[y - 1] ?? 0, (n) => arr(k, y, n), `${l} Year ${y}`, 5)}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -391,6 +421,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
               <label className="flex items-center gap-1.5">special dividend {num(o.specialDivPct, (n) => set({ specialDivPct: n }), "Special dividend %", 5, "w-16")} %</label>
               <label className="flex items-center gap-1.5">buyback {num(o.buybackPct, (n) => set({ buybackPct: n }), "Buyback %", 5, "w-16")} %</label>
               <span className="text-xs text-zinc-500">of the net proceeds; the rest ({Math.max(0, 100 - o.specialDivPct - o.buybackPct)}%) launches {NEW_NAME}</span>
+              <label className="flex items-center gap-1.5">of which space {num(o.spaceSharePct ?? 50, (n) => set({ spaceSharePct: Math.max(0, Math.min(100, n)) }), "Space share", 5, "w-16")} % (fintech {100 - (o.spaceSharePct ?? 50)}%)</label>
               <label className="flex items-center gap-1.5">{NEW_NAME} keeps {num(o.costBaseKeptPct, (n) => set({ costBaseKeptPct: n }), "Cost base kept", 5, "w-16")} % of the cost base</label>
             </p>
           </fieldset>

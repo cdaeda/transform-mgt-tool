@@ -47,4 +47,10 @@ assert.equal(fp.totals["Bonds & loans"], 250);
 assert.equal(fp.totals["Selling shares"], 100);
 assert.equal(fp.totals["Partner & customer money"], 40);
 assert.equal(fp.lines.length, 3);
+// Space and fintech: separate lines, and the launch capital split by spaceSharePct.
+const sf = outlook(base, { ...s, otherRevenue: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], fintechRevenue: [0, 0, 200, 0, 0, 0, 0, 0, 0, 0], spaceSharePct: 75 });
+assert.equal(sf.rows[2].fintech, 200e6);
+assert.equal(Math.round(sf.rows[1].launchSpace / (sf.rows[1].launchSpace + sf.rows[1].launchFintech) * 100), 75);
+const fps = financingPlan([], { ...o, saleYear: 2 });
+assert.equal(Math.round(fps.totals["Investing in space & fintech"]), Math.round((55000 - 925) * 0.4));
 console.log("outlook ok");
