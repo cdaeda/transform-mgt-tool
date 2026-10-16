@@ -86,12 +86,12 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
         <div className="max-w-3xl">
           <p className="eyebrow text-amber-700 dark:text-amber-300">The investor case · Flying Dragon → {NEW_NAME}</p>
           <h2 className="text-2xl sm:text-3xl leading-tight">{roi ? `${ps(o.entryPrice)} today → ${ps(roi.endPrice)} a share + ${ps(roi.dividends)} in dividends: ${roi.multiple.toFixed(1)}× by Year ${last.year}` : "Earnings outlook: from revenue to share price"}</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{o.saleYear ? `We shed our skin: sell the vehicle + Dragon Nexus business in Year ${o.saleYear} for $${o.salePriceB}B, repay debt, return cash to shareholders, and launch ${NEW_NAME}, the terrestrial link to space mobility.` : "No sale in this outlook yet: set one under Assumptions."} Year {ic.base.now} is the workbook; later years are the team&rsquo;s assumptions, not forecasts.</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{o.saleYear ? `The dragon is shedding: we sell the vehicle + Dragon Nexus business in Year ${o.saleYear} for $${o.salePriceB}B, repay debt, return cash to shareholders, and launch ${NEW_NAME}, the terrestrial link to space mobility.` : "No sale in this outlook yet: set one under Assumptions."} Year {ic.base.now} is the workbook; later years are the team&rsquo;s assumptions, not forecasts.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => ask(`${summary}\n\nPropose a defensible set of outlook assumptions: vehicle revenue growth, Dragon Nexus GMV by year and take rate, Nexus costs, ${NEW_NAME} (space and fintech) revenue and cost after the sale, a dividend strategy (none, moderate or aggressive) and buybacks to drive the share price, the P/E investors would pay (use our comparable valuations), an entry price for new investors, and the sale year, price ($50-60B) and split of proceeds. Mark every number as an assumption and say which to confirm with the facilitators.`)}
             className="rounded-md px-3 py-1.5 text-sm font-semibold border border-amber-600 text-amber-800 dark:text-amber-300">✨ Propose assumptions</button>
-          <button onClick={() => ask(`${summary}\n\nWrite the compelling, honest investor story for the board and capital markets: Flying Dragon sheds its skin - sells the vehicle + Dragon Nexus business (the network effect and the UX our loyal customers love) for $50-60B, repays debt, returns cash through a special dividend and buybacks, and launches ${NEW_NAME}, the terrestrial link to space mobility (space + fintech). Walk the return step by step (EPS, share price, DPS, total return), why a strategic buyer pays the price, how dividends and buybacks drive the share price, the risks and what must be true. No invented facts; [placeholders] where we have no number.`)}
+          <button onClick={() => ask(`${summary}\n\nWrite the compelling, honest investor story for the board and capital markets: "The dragon is shedding" - Flying Dragon sells the vehicle + Dragon Nexus business (the network effect and the UX our loyal customers love) for $50-60B, repays debt, returns cash through a special dividend and buybacks, and launches ${NEW_NAME}, the terrestrial link to space mobility (space + fintech). Walk the return step by step (EPS, share price, DPS, total return), why a strategic buyer pays the price, how dividends and buybacks drive the share price, the risks and what must be true. No invented facts; [placeholders] where we have no number.`)}
             className="rounded-md px-3 py-1.5 text-sm font-semibold bg-amber-600 text-white">✨ Write the investor story</button>
         </div>
       </div>
@@ -99,7 +99,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       <Ladder r={last} roi={roi} o={o} />
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
-          <b>Year {sale.year}: shedding the skin.</b> {sale.events.map((e) => e.label).join(" · ")}.
+          <b>Year {sale.year}: the dragon is shedding.</b> {sale.events.map((e) => e.label).join(" · ")}.
         </div>
       )}
 
@@ -158,7 +158,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
             </table>
           </div>
           <fieldset className="rounded border border-zinc-200 dark:border-zinc-800 p-2 space-y-2">
-            <legend className="px-1 font-semibold">The sale: shed the skin, launch {NEW_NAME}</legend>
+            <legend className="px-1 font-semibold">The sale: the dragon is shedding, {NEW_NAME} launches</legend>
             <p className="flex flex-wrap gap-4 items-center">
               <label className="flex items-center gap-1.5">Sell at the end of
                 <select value={o.saleYear} onChange={(e) => set({ saleYear: +e.target.value })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-transparent px-1">

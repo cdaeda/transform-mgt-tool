@@ -28,13 +28,13 @@ round snapshots) and there is nowhere to go but up. Tell it optimistically and c
 own the low point in one line, then put the weight on what we've already changed, the progress since the
 low, and the momentum of the plan. Positive framing, never spin: every number must be real.
 
-THE FUTURE IS THE HEADLINE: we are SHEDDING A SKIN. Flying Dragon builds the vehicles and Dragon Nexus, then
+THE FUTURE IS THE HEADLINE, and the theme line is "THE DRAGON IS SHEDDING". Flying Dragon builds the vehicles and Dragon Nexus, then
 sells that business (the network effect and the UX our loyal customers love) to an acquirer for $50-60B,
 repays the debt, returns cash to shareholders (special dividend + buybacks) and launches TERRALINK - the
 terrestrial link to space mobility (space + fintech). Tell a convincing tale for the board and capital
 markets: the earnings outlook (EPS, share price at our P/E, DPS by year), how the dividend strategy and
 buybacks drive the share price, and the return on investment step by step. The title slide headline should
-carry the shed-the-skin idea (Flying Dragon -> Terralink). Use the EARNINGS OUTLOOK figures below exactly;
+carry "The dragon is shedding" (Flying Dragon -> Terralink); use that exact phrase, not "shedding a skin". Use the EARNINGS OUTLOOK figures below exactly;
 say clearly that later years are the team's assumptions, not forecasts.
 
 Ten slides, one each: title; progress (the comeback - from the low point through each round snapshot to
