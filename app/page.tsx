@@ -12,6 +12,7 @@ import { YearStrategies } from "./year-strategies";
 import { InvestorCase } from "./outlook";
 import { YearRound } from "./year-round";
 import { KeyNumbers } from "./key-numbers";
+import { Valuation } from "./valuation";
 import { ExitScenario, Simulator } from "./simulator";
 import { DeckView } from "./deck-view";
 import { PresentReturn } from "./present-return";
@@ -356,6 +357,7 @@ export default function Home() {
             {tab === "Cards" && <CardsPanel ask={ask} onBooked={bump} cfo={cfo} />}
             {tab === "Finance" && (<>
               <KeyNumbers version={version} />
+              <Valuation version={version} />
               <ProfitBorrow version={version} plans={area === "Borrowing"} />
               <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap -mt-1" aria-label="Finance areas">
                 {FINANCE_AREAS.map((a) => (
