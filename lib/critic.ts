@@ -1,5 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { aiJson } from "@/lib/ai";
 import { z } from "zod";
 import { auditRules, type Snapshot } from "@/lib/audit-rules";
 import { sql } from "@/lib/db";
@@ -8,7 +7,6 @@ import { num } from "@/lib/impact";
 import { applyWrite, discard, persist, readRange, type Change } from "@/lib/sheet";
 import type { Cell } from "@/lib/cells";
 
-const client = new Anthropic();
 
 const Audit = z.object({
   verdict: z.enum(["PASS", "WARN", "FAIL"]).describe("FAIL = the change makes the workbook wrong or inconsistent and must not be saved; WARN = saveable but has issues to fix; PASS = consistent"),
@@ -58,24 +56,18 @@ async function snapshot() {
   return { snap, text };
 }
 
-// The critic: rule checks + an independent Claude auditor over the (possibly unsaved) workbook.
+// The critic: rule checks + an independent AI auditor over the (possibly unsaved) workbook.
 export async function critique(reason: string, changes: Change[]): Promise<AuditResult> {
   const { snap, text } = await snapshot();
   const findings = auditRules(snap);
-  const res = await client.messages.parse({
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: "high", format: zodOutputFormat(Audit) },
+  return aiJson({
+    tier: "pro",
+    schema: Audit,
     system: CRITIC,
-    messages: [{
-      role: "user",
-      content: `WHY THIS CHANGE WAS MADE / SOURCE DATA:\n${reason}\n\nPROPOSED CHANGES (before -> after):\n${
+    prompt: `WHY THIS CHANGE WAS MADE / SOURCE DATA:\n${reason}\n\nPROPOSED CHANGES (before -> after):\n${
         changes.length ? changes.map((c) => `${c.range}\n  before: ${JSON.stringify(c.before)}\n  after:  ${JSON.stringify(c.after)}`).join("\n") : "(none - full workbook audit)"
       }\n\nRULE-CHECK FINDINGS:\n${findings.map((f) => `${f.severity} ${f.cell}: ${f.problem}`).join("\n") || "(none)"}\n\nWORKBOOK AFTER THE CHANGE ('Team 1'):\n${text}`,
-    }],
-  });
-  return res.parsed_output ?? { verdict: "FAIL", summary: `The critic could not complete (${res.stop_reason}); not saving.`, issues: [] };
+  }).catch((e) => ({ verdict: "FAIL" as const, summary: `The critic could not complete (${e instanceof Error ? e.message : e}); not saving.`, issues: [] }));
 }
 
 async function log(reason: string, changes: Change[], audit: AuditResult, saved: boolean) {

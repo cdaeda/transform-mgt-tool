@@ -1,11 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 const Option = z.object({
   rank: z.number().int().describe("1 = best"),
@@ -35,15 +33,11 @@ const Options = z.object({
 export async function POST(req: Request) {
   const { intent, history = [], levers, leverCells = [], cards, baseline, scenario, year } = await req.json();
   try {
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(Options) },
+    const res = await aiJson({
+      tier: "pro",
+      schema: Options,
       system: await buildContext(),
-      messages: [{
-        role: "user",
-        content: `Give us THREE creative financing strategies for what we want to do, stack ranked best first (best =
+      prompt: `Give us THREE creative financing strategies for what we want to do, stack ranked best first (best =
 fastest to our ambition while covenant-safe and least dilutive). Use our FINANCING OPTIONS (reference them
 by id) and add new ideas only if clearly better. Respect the lead lender's covenants. Never invent figures:
 derive from the numbers below or use [placeholders]. For each option give the lever values so we can
@@ -60,12 +54,11 @@ ${JSON.stringify(baseline)}
 
 SCENARIO per year:
 ${JSON.stringify(scenario)}`,
-      }],
     });
-    if (!res.parsed_output) return Response.json({ error: `Planning failed (${res.stop_reason}).` }, { status: 502 });
-    return Response.json(res.parsed_output);
+    if (!res) return Response.json({ error: `Planning failed .` }, { status: 502 });
+    return Response.json(res);
   } catch (err) {
-    const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });
   }
 }

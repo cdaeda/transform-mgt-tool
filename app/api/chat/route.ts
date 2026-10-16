@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { aiTools, type Part } from "@/lib/ai";
 import { logActivity } from "@/lib/activity";
 import { gated } from "@/lib/critic";
 import { sql } from "@/lib/db";
@@ -7,8 +7,6 @@ import { roleOf } from "@/lib/role-guard";
 import { makeWriteTool, readTool, systemPrompt } from "@/lib/tools";
 
 export const maxDuration = 300;
-
-const client = new Anthropic();
 
 const CHAT_TOOLS = `When you recommend a change to the organization, also call propose_changes so the team can accept or
 reject it. When a decision is the team's to make, use offer_choices instead of a long question.`;
@@ -55,35 +53,27 @@ export async function POST(req: Request) {
   if (lastUser >= 0) raw[lastUser].by = me;
   const ix = interactionTools();
   // A user message may carry a photo (from the capture modal).
-  const messages: Anthropic.MessageParam[] = raw.map((m) =>
-    m.image && m.role === "user"
-      ? { role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: m.image } }, { type: "text", text: m.content || "(photo)" }] }
-      : { role: m.role, content: m.role === "user" && m.by ? `[${m.by}] ${m.content}` : m.content },
-  );
+  const messages = raw.map((m) => ({
+    role: m.role,
+    parts: [...(m.image && m.role === "user" ? [{ image: m.image }] : []), { text: m.role === "user" && m.by ? `[${m.by}] ${m.content || "(photo)"}` : m.content || "(photo)" }] as Part[],
+  }));
   const log = tab === "Activity" ? await sql`select created_at, role, tab, kind, summary from activity order by created_at desc limit 80` : [];
   const last = messages.at(-1);
   const cfo = roleOf(req) === "CFO";
   try {
     let reply = "";
     // Any cells the CFO writes this turn are held in memory until the critic approves them.
-    const result = await gated(`CFO chat request: ${typeof last?.content === "string" ? last.content : "(see chat)"}`, async (write) => {
-      const final = await client.beta.messages.toolRunner({
-        model: "claude-opus-5-5",
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        output_config: { effort: "high" },
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+    const lastText = last?.parts.map((p) => ("text" in p ? p.text : "")).join(" ") || "(see chat)";
+    const result = await gated(`CFO chat request: ${lastText}`, async (write) => {
+      const final = await aiTools({
+        tier: "pro",
         system: `${await systemPrompt()}\n\n${mode === "act" ? ACT : cfo && ["Finance", "Workbook"].includes(tab) ? CFO_DOES : CHAT_TOOLS}\n\nYOU ARE THE ${tab.toUpperCase()} TAB'S COPILOT: focus on ${FOCUS[tab] ?? FOCUS.Dashboard}. Several team members share this thread; each of their messages starts with their role in [brackets].${log.length ? `\n\nRECENT ACTIVITY (newest first):\n${log.map((a) => `${new Date(a.created_at).toISOString().slice(0, 16)} ${a.role || "?"} @${a.tab || "?"} [${a.kind}] ${a.summary}`).join("\n")}` : ""}\n\nTHE PERSON CHATTING NOW IS THE ${roleOf(req) ?? "UNKNOWN ROLE"}.${cfo ? "" : " Only the CFO can change numbers: you cannot write cells for them. If they ask for a change, say exactly which cells and values the CFO should enter, and suggest a task for the CFO."}`,
         // In "act" mode (working a task) every change goes through accept/reject proposals.
         tools: cfo && mode !== "act" ? [readTool, makeWriteTool(write), ...ix.tools] : [readTool, ...ix.tools],
-        max_iterations: 20,
+        maxSteps: 20,
         messages,
       });
-      reply =
-        final.stop_reason === "refusal"
-          ? "The model declined this request."
-          : final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+      reply = final.text;
     });
     if (result.audit) {
       const a = result.audit;
@@ -106,7 +96,7 @@ export async function POST(req: Request) {
     if (result.saved && result.changes.length) await logActivity(req, "decision", `Copilot wrote ${result.changes.length} workbook cells (critic ${result.audit?.verdict})`, { cells: result.changes.map((c) => c.range) }, threadId ?? null);
     return Response.json({ text: reply, proposals: ix.proposals, choices: ix.choices });
   } catch (e) {
-    const msg = e instanceof Anthropic.APIError ? `${e.status}: ${e.message}` : String(e);
+    const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ text: `Error: ${msg}` }, { status: 500 });
   }
 }

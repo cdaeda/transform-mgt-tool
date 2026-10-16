@@ -1,13 +1,11 @@
 import { logActivity } from "@/lib/activity";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 import { CARD_TYPES, isBM, pick, sql, type Card } from "@/lib/db";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 const Evaluation = z.object({
   lens: z.string().describe("The card family exactly as printed in the card header, e.g. 'Business Model', 'Innovation Strategy', 'Management Event', 'Management Challenge', 'Management Task', 'Analyst', 'BOOM!', 'Advisor'"),
@@ -50,27 +48,13 @@ export async function POST(req: Request) {
   const { image, text } = (await req.json()) as { image?: string; text?: string };
   if (!image && !text) return Response.json({ error: "image or text is required" }, { status: 400 });
   try {
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(Evaluation) },
+    const res = await aiJson({
+      tier: "pro",
+      schema: Evaluation,
       system: await buildContext(),
-      messages: [
-        {
-          role: "user",
-          content: [
-            image
-              ? { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } }
-              : { type: "text", text: `Card (typed by us): ${text}` },
-            { type: "text", text: ASK },
-          ],
-        },
-      ],
+      parts: [image ? { image } : { text: `Card (typed by us): ${text}` }, { text: ASK }],
     });
-    if (res.stop_reason === "refusal" || !res.parsed_output)
-      return Response.json({ error: `Evaluation failed (${res.stop_reason}).` }, { status: 502 });
-    const e = res.parsed_output;
+    const e = res;
     const bm = isBM(e.type);
     const row = {
       ...e,
@@ -85,7 +69,7 @@ export async function POST(req: Request) {
     await logActivity(req, "action", `Evaluated card #${card.id} (${card.type}): ${card.title} → ${card.recommendation}`, { card: card.id });
     return Response.json(card);
   } catch (err) {
-    const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });
   }
 }

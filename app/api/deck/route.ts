@@ -1,6 +1,5 @@
+import { aiJson } from "@/lib/ai";
 import { logActivity } from "@/lib/activity";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { buildContext } from "@/lib/context";
 import { listRounds } from "@/lib/rounds";
 import { sql } from "@/lib/db";
@@ -9,7 +8,6 @@ import { Deck, DECK_EVENT as EVENT } from "@/lib/deck";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 const ASK = `Write our deck for the ${EVENT} (management event card): "Prepare a short presentation outlining
 your key achievements over the past twelve months. Present your financial results for the year. Most
@@ -34,7 +32,8 @@ buybacks drive the share price, and the return on investment step by step. The t
 carry "The dragon is shedding" (Flying Dragon -> Terralink); use that exact phrase, not "shedding a skin". Use the EARNINGS OUTLOOK figures below exactly;
 say clearly that later years are the team's assumptions, not forecasts. A $0 or 0.0 in the outlook for a
 future year almost always means "not set yet": never quote it as a number; leave it out or say it is still to be
-set. Report the last CLOSED year's results (we are presenting at the start of the new year). The acquisition message: we keep the
+set. Report the last CLOSED year's results (we are presenting at the start of the new year), but today's VALUATION is the
+current year's: it includes this year's analyst ratings from the sheet (see the live snapshot) - use them. The acquisition message: we keep the
 core human brains and go AI-native; the legacy infrastructure goes with the buyer, and Terralink is rebuilt from
 scratch on a modern, AI-first model.
 
@@ -65,30 +64,19 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const stream = client.messages.stream({
-      model: "claude-opus-5-5",
-      max_tokens: 32000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(Deck) },
-      system: await buildContext(),
-      messages: [{ role: "user", content: `${ASK}
+    const data = await aiJson({ tier: "pro", maxTokens: 32000, schema: Deck, system: await buildContext(), prompt: `${ASK}
 
 EARNINGS OUTLOOK (the team's saved assumptions; Capital > Investor case):
 ${await outlookPrompt()}
 
 ROUND SNAPSHOTS (oldest first, market cap $M):
-${(await listRounds()).map((r) => `- ${r.label} (Year ${r.year}, ${r.created_at.toISOString().slice(0, 10)}): market cap ${r.data.cap}, price ${r.data.price.toFixed(2)}, net ${Math.round(r.data.net)}, rank ${r.data.rank}`).join("\n") || "(none yet - the current numbers are the baseline)"}` }],
-    });
-    const msg = await stream.finalMessage();
-    if (msg.stop_reason !== "end_turn") return Response.json({ error: `Writing stopped early (${msg.stop_reason}). Try again.` }, { status: 502 });
-    const text = msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-    const parsed = Deck.safeParse(JSON.parse(text));
-    if (!parsed.success) return Response.json({ error: `Deck didn't match the expected shape: ${parsed.error.issues[0]?.message}` }, { status: 502 });
+${(await listRounds()).map((r) => `- ${r.label} (Year ${r.year}, ${r.created_at.toISOString().slice(0, 10)}): market cap ${r.data.cap}, price ${r.data.price.toFixed(2)}, net ${Math.round(r.data.net)}, rank ${r.data.rank}`).join("\n") || "(none yet - the current numbers are the baseline)"}` });
+    const parsed = { data };
     const [row] = await sql`insert into decks ${sql({ event: EVENT, content: sql.json(parsed.data) })} returning content, created_at`;
     await logActivity(req, "action", "Regenerated the Shareholder Day deck");
     return Response.json(row);
   } catch (err) {
-    const m = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const m = err instanceof Error ? err.message : String(err);
     return Response.json({ error: m }, { status: 500 });
   }
 }

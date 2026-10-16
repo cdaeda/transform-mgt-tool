@@ -1,12 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 import { sql } from "@/lib/db";
 
 export const maxDuration = 120;
 
-const client = new Anthropic();
 
 const Action = z.object({
   label: z.string().describe("Button text, verb first, 2-5 words, e.g. 'Roll the dice', 'Act on CFO task'"),
@@ -34,22 +32,20 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium", format: zodOutputFormat(NextMove) },
+    const res = await aiJson({
+      tier: "flash",
+      schema: NextMove,
       system: await buildContext(),
-      messages: [{ role: "user", content: `What should the team do next, right now, to move fastest toward $50B by Year 3? Weigh: rolling the dice
+      prompt: `What should the team do next, right now, to move fastest toward $50B by Year 3? Weigh: rolling the dice
 ($100k a roll - worth it given our cash and the squares?), open tasks (cite the id), unprocessed cards, workbook
 errors blocking the numbers, the next event (Annual Shareholder Meeting & Analyst Day), capital strategies to pitch
-or lock in. Pick ONE best move and two alternatives. Be concrete.` }],
+or lock in. Pick ONE best move and two alternatives. Be concrete.`,
     });
-    if (!res.parsed_output) return Response.json({ error: `No suggestion (${res.stop_reason}).` }, { status: 502 });
-    const [row] = await sql`insert into next_moves ${sql({ content: sql.json(res.parsed_output) })} returning content, created_at`;
+    if (!res) return Response.json({ error: `No suggestion .` }, { status: 502 });
+    const [row] = await sql`insert into next_moves ${sql({ content: sql.json(res) })} returning content, created_at`;
     return Response.json(row);
   } catch (err) {
-    const m = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const m = err instanceof Error ? err.message : String(err);
     return Response.json({ error: m }, { status: 500 });
   }
 }

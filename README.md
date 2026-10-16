@@ -2,7 +2,7 @@
 
 A management desk and AI copilot for one team in Duke's CAIO **Transform!** business simulation. It keeps the team's copy of the class workbook, recalculates it live, tracks cards, tasks, capital strategies and analyst ratings, and gives every tab its own Claude copilot. Every chat, decision and change is logged by role on the Activity tab.
 
-- **Stack:** Next.js 16 (App Router), Tailwind v4, TypeScript, Postgres on Supabase (`postgres.js`), HyperFormula for live recalculation, the Anthropic API (Claude Opus 5.5), and the Google Sheets API for writing back to the class sheet.
+- **Stack:** Next.js 16 (App Router), Tailwind v4, TypeScript, Postgres on Supabase (`postgres.js`), HyperFormula for live recalculation, Google Gemini (gemini-3.1-pro-preview for writing and judgement, gemini-3.5-flash for quick extraction; one adapter in `lib/ai.ts`), and the Google Sheets API for writing back to the class sheet.
 - **Hosting:** Vercel.
 - **Guard rails:** one shared password for the whole app. Everyone picks a role, and only the **CFO** can change numbers. An AI critic audits every workbook change before it is saved. The app writes only to your team's tab of the class sheet.
 
@@ -15,7 +15,7 @@ This guide takes you from nothing to a running copy, step by step. Allow about 4
 | Account | What it's for | Cost |
 |---|---|---|
 | [GitHub](https://github.com) | Your copy of the code | Free |
-| [Anthropic Console](https://console.anthropic.com) | The Claude API key behind the copilots | Pay per use (add a few dollars of credit) |
+| [Google AI Studio](https://aistudio.google.com) | The Gemini API key behind the copilots, decks and research | Pay per use (free tier for light testing) |
 | [Supabase](https://supabase.com) | The Postgres database | Free tier is enough |
 | [Google Cloud](https://console.cloud.google.com) | A service account that writes to the class Google Sheet | Free |
 | [Vercel](https://vercel.com) | Hosting | Hobby (free) works; functions can run up to 300 s |
@@ -36,12 +36,12 @@ To keep your own copy, fork the repo on GitHub first and clone your fork instead
 
 ---
 
-## Step 2: Anthropic API key
+## Step 2: Gemini API key
 
-1. Sign in at [console.anthropic.com](https://console.anthropic.com).
-2. Go to **Settings → Billing** and add credit. A busy class session costs a few dollars.
-3. Go to **Settings → API keys → Create key**. Name it `transform`, then copy the key (it starts with `sk-ant-`).
-4. Keep the key somewhere safe for Step 6. Never commit it, and never paste it into chat or a shared doc.
+1. Sign in at [aistudio.google.com](https://aistudio.google.com) with a Google account.
+2. Click **Get API key → Create API key** (in a Google Cloud project with billing enabled for heavier use), then copy it.
+3. Keep the key somewhere safe for Step 6. Never commit it, and never paste it into chat or a shared doc.
+4. Models: the app uses `gemini-3.1-pro-preview` and `gemini-3.5-flash`. If Google renames them, set `GEMINI_MODEL_PRO` / `GEMINI_MODEL_FLASH` instead of changing code.
 
 ---
 
@@ -102,7 +102,7 @@ The roles themselves are in `lib/roles.ts`.
 Create `.env.local` in the project root. It is git-ignored.
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=...
 DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 APP_PASSWORD=pick-a-shared-password
 CLASS_SHEET_ID=<the sheet id>
@@ -112,7 +112,8 @@ NEXT_PUBLIC_TEAM_NAMES={"CEO":"...","CFO":"..."}
 
 | Variable | Required | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | Read automatically by the Anthropic SDK. |
+| `GEMINI_API_KEY` | Yes | All AI features (copilots, card reading, decks, research). |
+| `GEMINI_MODEL_PRO` / `GEMINI_MODEL_FLASH` | No | Override the model names. |
 | `DATABASE_URL` | Yes | Supabase **session pooler**, port 5432 (not the transaction pooler). |
 | `APP_PASSWORD` | Recommended | Browser password prompt; any username works. If empty, the app is open to anyone. |
 | `CLASS_SHEET_ID` | For syncing | Without it, upload the workbook `.xlsx` by hand instead. |
@@ -157,7 +158,7 @@ npm run build                              # production build
 vercel login
 vercel link            # create a new project, e.g. "transform-team1"
 # add each variable to every environment (paste the value when prompted)
-for v in ANTHROPIC_API_KEY DATABASE_URL APP_PASSWORD CLASS_SHEET_ID GOOGLE_SERVICE_ACCOUNT_JSON NEXT_PUBLIC_TEAM_NAMES; do
+for v in GEMINI_API_KEY DATABASE_URL APP_PASSWORD CLASS_SHEET_ID GOOGLE_SERVICE_ACCOUNT_JSON NEXT_PUBLIC_TEAM_NAMES; do
   for e in production preview development; do vercel env add $v $e; done
 done
 vercel --prod
@@ -218,7 +219,7 @@ Set up the "Transform! Mgt Tool" from https://github.com/cdaeda/transform-mgt-to
 4. Google: walk me through creating the service account and enabling the Sheets API, then ask me for
    the key file path and flatten it to one line yourself. Ask me for the class sheet ID and our team's
    tab name. If the tab isn't "Team 1", update TEAM_TAB in lib/cells.ts.
-5. Ask me for the Anthropic API key, an app password, and (optionally) the role-to-name JSON.
+5. Ask me for the Gemini API key, an app password, and (optionally) the role-to-name JSON.
    Write them only to .env.local. Never print a secret back to me, never commit one, and never put
    the sheet ID in a tracked file.
 6. Run `npx tsc --noEmit`, `npm run lint`, every lib/*.check.ts with node, and `npm run build`.
@@ -244,7 +245,8 @@ Set up the "Transform! Mgt Tool" from https://github.com/cdaeda/transform-mgt-to
 | `EMAXCONNSESSION` / `max clients reached`, or "Unexpected end of JSON input" | More than 15 connections are open. Stop extra local `npm run dev` servers and wait a minute. If it keeps happening, raise **Pool Size** in Supabase → Database → Settings → Connection pooling. |
 | Wrong or missing data, `Cannot read properties of undefined` | You are on the transaction pooler (6543). Switch `DATABASE_URL` to the session pooler (5432) and redeploy. |
 | `relation "…" does not exist` | Re-run `supabase/schema.sql` in the SQL editor. |
-| Copilot replies "Error: 401" | The Anthropic key is wrong or out of credit. |
+| Copilot replies "Gemini 400/403" | The Gemini key is wrong, or billing/quota is exhausted in its Google Cloud project. |
+| "Gemini 503: service unavailable" | Google is busy; the app already retries three times. Try again in a minute. |
 
 ## Security notes
 

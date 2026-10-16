@@ -1,4 +1,4 @@
-import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { aiTool } from "@/lib/ai";
 import { z } from "zod";
 import { ROLE_IDS } from "@/lib/roles";
 
@@ -20,16 +20,16 @@ export type Choice = { question: string; options: string[] };
 export function interactionTools() {
   const proposals: ProposalT[] = [];
   const choices: Choice[] = [];
-  const propose = betaZodTool({
+  const propose = aiTool({
     name: "propose_changes",
     description: "Propose concrete changes to the organization for the team to accept or reject one by one (workbook cells, strategy fields, new tasks, task status, card or financing decisions, or an insight to remember). Nothing is applied until accepted. Use for every change you recommend.",
-    inputSchema: z.object({ proposals: z.array(Proposal) }),
+    schema: z.object({ proposals: z.array(Proposal) }),
     run: async ({ proposals: ps }) => (proposals.push(...ps), `Proposed ${ps.length} change(s); the team will accept or reject each.`),
   });
-  const ask = betaZodTool({
+  const ask = aiTool({
     name: "offer_choices",
     description: "Ask the user a focused question with 2-4 short answer options they can tap (they can also type their own).",
-    inputSchema: z.object({ question: z.string(), options: z.array(z.string()).min(2).max(4) }),
+    schema: z.object({ question: z.string(), options: z.array(z.string()).min(2).max(4) }),
     run: async (c) => (choices.push(c), "Shown to the user as tappable options."),
   });
   return { proposals, choices, tools: [propose, ask] };

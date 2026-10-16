@@ -30,9 +30,11 @@ export async function GET() {
   ]);
   // A year-end deck reports the last CLOSED year (the current one has only just opened).
   const py = closedYearOf(snap.years, st.current_year), i = py - 1, y = snap.years[i];
-  const units = { core: snap.units[0]?.[i] ?? 0, growth: snap.units[1]?.[i] ?? 0, explore: snap.units[2]?.[i] ?? 0 };
-  const analysts = (snap.analysts ?? []).map((r) => r[i] ?? 0);
-  const mc = marketCap({ ...units, analysts, cash: snap.cashUnits?.[i] ?? 0 });
+  // Valuation is TODAY's: the current year carries this year's analyst ratings from the sheet.
+  const ci = st.current_year - 1;
+  const units = { core: snap.units[0]?.[ci] ?? 0, growth: snap.units[1]?.[ci] ?? 0, explore: snap.units[2]?.[ci] ?? 0 };
+  const analysts = (snap.analysts ?? []).map((r) => r[ci] ?? 0);
+  const mc = marketCap({ ...units, analysts, cash: snap.cashUnits?.[ci] ?? 0 });
   const deck = deckRow.content;
   const out: Outlook = { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) };
   const ol = outlook(outlookBaseFrom(snap, st.current_year), out);
@@ -123,7 +125,7 @@ export async function GET() {
         const snaps = rounds.filter((r) => r.year === y && !/^After sync/i.test(r.label)).map((r) => r.label).join(" · ");
         slide.addText([
           { text: `${y === 1 ? "THE LOW POINT" : ahead ? "ENTERING NOW" : "THE RECOVERY"}\n`, options: { fontSize: 9, bold: true, color: GREY } },
-          { text: ahead ? "The dragon sheds\n" : `${money((yr?.cap ?? 0) * 1e6)}\n`, options: { fontSize: 18, bold: true, color: col } },
+          { text: ahead ? `The dragon is shedding\n${yr?.cap ? `${money(yr.cap * 1e6)} today\n` : ""}` : `${money((yr?.cap ?? 0) * 1e6)}\n`, options: { fontSize: 18, bold: true, color: col } },
           ...(ahead ? [] : [{ text: `net profit ${money(yr?.net ?? 0)}\n`, options: { fontSize: 11, color: INK } }]),
           ...(snaps ? [{ text: snaps, options: { fontSize: 9, color: GREY } }] : []),
         ], { x: cx, y: 2.95, w: cw - 0.1, h: 2.4, fontFace: FONT, align: "center", valign: "top" });

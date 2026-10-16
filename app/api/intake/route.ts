@@ -1,11 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson, type Part } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 const Intake = z.object({
   kind: z.enum(["card", "non_card_image", "workbook_change", "question", "instruction", "other"]),
@@ -39,21 +37,17 @@ export async function POST(req: Request) {
   const { image, text } = (await req.json()) as { image?: string; text?: string };
   if (!image && !text?.trim()) return Response.json({ error: "Add a photo or type something." }, { status: 400 });
   try {
-    const content: Anthropic.ContentBlockParam[] = [];
-    if (image) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
-    content.push({ type: "text", text: `${text?.trim() ? `They wrote: ${text.trim()}\n\n` : ""}${ASK}` });
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium", format: zodOutputFormat(Intake) },
+    const content: Part[] = [...(image ? [{ image }] : []), { text: `${text?.trim() ? `They wrote: ${text.trim()}\n\n` : ""}${ASK}` }];
+    const res = await aiJson({
+      tier: "flash",
+      schema: Intake,
       system: await buildContext(),
-      messages: [{ role: "user", content }],
+      parts: content,
     });
-    if (!res.parsed_output) return Response.json({ error: `Couldn't read that (${res.stop_reason}).` }, { status: 502 });
-    return Response.json(res.parsed_output);
+    if (!res) return Response.json({ error: `Couldn't read that .` }, { status: 502 });
+    return Response.json(res);
   } catch (err) {
-    const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });
   }
 }

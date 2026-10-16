@@ -1,13 +1,11 @@
 import { logActivity } from "@/lib/activity";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 import { pick, sql, type FinancingIdea } from "@/lib/db";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 const Ideas = z.object({
   ideas: z.array(z.object({
@@ -38,30 +36,20 @@ export async function POST(req: Request) {
   const { text, pdf, source } = (await req.json()) as { text?: string; pdf?: string; source?: string };
   if (!text && !pdf) return Response.json({ error: "text or pdf is required" }, { status: 400 });
   try {
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(Ideas) },
+    const res = await aiJson({
+      tier: "flash",
+      schema: Ideas,
       system: await buildContext(),
-      messages: [{
-        role: "user",
-        content: [
-          pdf
-            ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdf } }
-            : { type: "text", text: `<source>\n${text}\n</source>` },
-          { type: "text", text: `Source name: ${source || "(unnamed)"}\n\n${ASK}` },
-        ],
-      }],
+      parts: [pdf ? { pdf } : { text: `<source>\n${text}\n</source>` }, { text: `Source name: ${source || "(unnamed)"}\n\n${ASK}` }],
     });
-    if (!res.parsed_output) return Response.json({ error: `Extraction failed (${res.stop_reason}).` }, { status: 502 });
-    const rows = res.parsed_output.ideas.map((i) => ({ ...i, source: source || "(unnamed)" }));
+    if (!res) return Response.json({ error: `Extraction failed .` }, { status: 502 });
+    const rows = res.ideas.map((i) => ({ ...i, source: source || "(unnamed)" }));
     if (!rows.length) return Response.json([]);
     const saved = await sql<FinancingIdea[]>`insert into financing_ideas ${sql(rows)} returning *`;
     await logActivity(req, "action", `Extracted ${saved.length} financing ideas${source ? ` from ${source}` : ""}`, { ideas: saved.map((r) => r.id) });
     return Response.json(saved);
   } catch (err) {
-    const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });
   }
 }

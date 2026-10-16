@@ -76,7 +76,8 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
               <span className={`mx-auto grid place-items-center w-11 h-11 rounded-full font-display text-white shadow ${ahead ? "bg-indigo-700" : cap !== undefined && cap < 0 ? "bg-red-600" : "bg-green-700"}`}>Y{y}</span>
               <p className="eyebrow text-zinc-500">{y === 1 ? "The low point" : ahead ? "Entering now" : "The recovery"}</p>
               {!ahead && cap !== undefined && <p className={`font-display text-2xl tabular-nums ${cap < 0 ? "text-red-600" : "text-green-700"}`}>{capM(cap)}</p>}
-              {ahead && <p className="font-display text-2xl text-indigo-700">The dragon sheds</p>}
+              {ahead && <p className="font-display text-2xl text-indigo-700">The dragon is shedding</p>}
+              {ahead && cap !== undefined && cap !== 0 && <p className="text-sm text-zinc-600">{capM(cap)} today, with this year&rsquo;s ratings</p>}
               {!ahead && net !== undefined && <p className="text-sm text-zinc-600">net profit {money(net)}</p>}
               {snaps.length > 0 && <p className="text-xs text-zinc-500">{snaps.map((r) => r.label).join(" · ")}</p>}
             </li>
@@ -117,9 +118,9 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
       { label: "Cash", value: at(sim?.cash, o.kpis.cash), color: "var(--gold)" },
     ]} />;
   if (kind === "market_cap") {
-    const units = sim ? { core: sim.units[0]?.[i] ?? 0, growth: sim.units[1]?.[i] ?? 0, explore: sim.units[2]?.[i] ?? 0 } : o.plan.units;
-    const analysts = sim ? sim.analysts.map((r) => r[i] ?? 0) : o.plan.analysts;
-    const mc = marketCap({ ...units, analysts, cash: sim ? sim.cashUnits[i] ?? 0 : o.plan.cashForCap });
+    // Valuation is TODAY's (the current year carries this year's analyst ratings from the sheet).
+    const units = o.plan.units, analysts = o.plan.analysts;
+    const mc = marketCap({ ...units, analysts, cash: o.plan.cashForCap });
     return (
       <div className="space-y-3">
         <Bars items={[
@@ -128,7 +129,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
           { label: "Cash × 100", value: mc.cashTerm * 1e6, color: "var(--gold)" },
           { label: "Market cap", value: mc.total * 1e6, color: "var(--core)" },
         ]} />
-        <p className="text-base text-zinc-500 text-center">Year {py}: {units.core} Core · {units.growth} Growth · {units.explore} Explore · analysts: {ANALYST_NAMES.map((n, j) => (analysts[j] ? `${analysts[j]} ${n}` : "")).filter(Boolean).join(", ") || "none"}</p>
+        <p className="text-base text-zinc-500 text-center">Year {o.year} today: {units.core} Core · {units.growth} Growth · {units.explore} Explore · analysts: {ANALYST_NAMES.map((n, j) => (analysts[j] ? `${analysts[j]} ${n}` : "")).filter(Boolean).join(", ") || "none"}</p>
       </div>
     );
   }
@@ -147,7 +148,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
       </ol>
     );
   if (kind === "ask") {
-    const now = o.certificate.caps[i] ?? 0; const pct = Math.max(0, Math.min(100, (now / 50000) * 100));
+    const now = o.certificate.caps[o.year - 1] ?? 0; const pct = Math.max(0, Math.min(100, (now / 50000) * 100));
     return (
       <div className="space-y-3">
         <div className="flex justify-between text-lg"><span>Today {capM(now)}</span><span className="text-amber-600 font-semibold">$50B</span></div>

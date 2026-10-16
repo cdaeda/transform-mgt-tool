@@ -1,12 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson, aiText } from "@/lib/ai";
 import { logActivity } from "@/lib/activity";
 import { sql } from "@/lib/db";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 
 // The comparables investors will reach for, by horizon. The team can add names on each refresh.
 const DEFAULT = `- H2 (Dragon Nexus, 4D intelligence + satellite network): Starlink / SpaceX (private; latest tender or
@@ -44,47 +42,29 @@ export async function GET() {
 export async function POST(req: Request) {
   const { extra = "" } = await req.json().catch(() => ({}));
   try {
-    const messages: Anthropic.MessageParam[] = [{
-      role: "user",
-      content: `Find the most recent publicly reported valuation for each of these comparables, for a Flying Dragon
+    // 1) research with Google Search grounding, 2) structure it into rows (two calls: grounding and
+    // structured output don't mix).
+    const research = await aiText({ tier: "pro", search: true, maxTokens: 16000, prompt: `Find the most recent publicly reported valuation for each of these comparables, for a Flying Dragon
 investor slide (our plan: build vehicles for cash, launch Dragon Nexus - a two-sided marketplace for 4D location
 intelligence fed by vehicles and a microsatellite network - with Dragon Credits / Dragon Ledger for settlement).
 ${DEFAULT}${extra ? `\n- Also: ${extra}` : ""}
 
 For each: the valuation figure and its basis (market cap, private round, tender, token market cap or FDV), the date,
 the latest annual or trailing revenue if reported, and the source name and URL. Use only figures you find in sources
-today; if something is not found, say so - never estimate or invent. Note anything that makes a figure soft.`,
-    }];
-    let research = "";
-    for (let i = 0; i < 4; i++) {
-      const msg = await client.messages.stream({
-        model: "claude-opus-5-5",
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        output_config: { effort: "medium" },
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 12 }],
-        messages,
-      }).finalMessage();
-      research += msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
-      if (msg.stop_reason !== "pause_turn") break;
-      messages.push({ role: "assistant", content: msg.content }); // server-side search loop paused: resume it
-    }
-    if (!research.trim()) return Response.json({ error: "The research came back empty. Try again." }, { status: 502 });
-
-    const out = await client.messages.stream({
-      model: "claude-opus-5-5",
-      max_tokens: 12000,
-      output_config: { effort: "low", format: zodOutputFormat(z.object({ comps: z.array(Comp) })) },
-      messages: [{ role: "user", content: `Turn this research into comparable-valuation rows. Copy figures, dates and URLs exactly; use null where the research found nothing. One row per company per valuation basis (e.g. Ripple the company and XRP the token are two rows).\n\n${research}` }],
-    }).finalMessage();
-    const parsed = z.object({ comps: z.array(Comp) }).safeParse(JSON.parse(out.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("")));
-    if (!parsed.success || !parsed.data.comps.length) return Response.json({ error: "Couldn't structure the research. Try again." }, { status: 502 });
+today; if something is not found, say so - never estimate or invent. Note anything that makes a figure soft.` });
+    if (!research.text.trim()) return Response.json({ error: "The research came back empty. Try again." }, { status: 502 });
+    const out = await aiJson({
+      tier: "flash", schema: z.object({ comps: z.array(Comp) }),
+      prompt: `Turn this research into comparable-valuation rows. Copy figures, dates and URLs exactly; use null where the research found nothing. One row per company per valuation basis (e.g. Ripple the company and XRP the token are two rows).\n\n${research.text}\n\nSOURCES FOUND:\n${research.sources.join("\n") || "(see the research text)"}`,
+    });
+    const parsed = { success: out.comps.length > 0, data: out };
+    if (!parsed.success) return Response.json({ error: "Couldn't structure the research. Try again." }, { status: 502 });
     const batch = new Date();
     const rows = await sql`insert into comps ${sql(parsed.data.comps.map((c) => ({ ...c, batch })))} returning *`;
     await logActivity(req, "action", `Refreshed comparable valuations (${rows.length} rows)`, { companies: rows.map((r) => r.company) });
     return Response.json(rows);
   } catch (err) {
-    const e = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const e = err instanceof Error ? err.message : String(err);
     return Response.json({ error: e }, { status: 500 });
   }
 }

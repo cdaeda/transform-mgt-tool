@@ -1,14 +1,12 @@
 import { logActivity } from "@/lib/activity";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { aiJson } from "@/lib/ai";
 import { buildContext } from "@/lib/context";
 import { pick, sql, type Team } from "@/lib/db";
 import { readRange } from "@/lib/sheet";
 
 export const maxDuration = 300;
 
-const client = new Anthropic();
 const FIELDS = ["company", "observed_cards", "ambition", "notes", "ai_profile", "plug_in"] as const;
 
 export async function GET() {
@@ -44,19 +42,14 @@ export async function POST(req: Request) {
     .then((rs) => rs.map((r) => `${r.range}\n${r.values.map((row) => row.join(" | ")).join("\n")}`).join("\n\n"))
     .catch((e) => `(their tab is unavailable: ${e instanceof Error ? e.message : e})`);
   try {
-    const res = await client.messages.parse({
-      model: "claude-opus-5-5",
-      max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high", format: zodOutputFormat(Profile) },
+    const res = await aiJson({
+      tier: "flash",
+      schema: Profile,
       system: await buildContext(),
-      messages: [{
-        role: "user",
-        content: `Profile rival Team ${n} for us. Their sheet tab:\n${tab}\n\nWhat we've observed at the table:\nCards seen: ${team?.observed_cards || "?"}\nTheir stated ambition: ${team?.ambition || "?"}\nOther notes: ${team?.notes || "?"}\n\nBe explicit about what is evidence and what is inference.`,
-      }],
+      prompt: `Profile rival Team ${n} for us. Their sheet tab:\n${tab}\n\nWhat we've observed at the table:\nCards seen: ${team?.observed_cards || "?"}\nTheir stated ambition: ${team?.ambition || "?"}\nOther notes: ${team?.notes || "?"}\n\nBe explicit about what is evidence and what is inference.`,
     });
-    if (!res.parsed_output) return Response.json({ error: `Profiling failed (${res.stop_reason}).` }, { status: 502 });
-    const row = { team_number: n, ...res.parsed_output, updated_at: new Date() };
+    if (!res) return Response.json({ error: `Profiling failed .` }, { status: 502 });
+    const row = { team_number: n, ...res, updated_at: new Date() };
     const [saved] = await sql`
       insert into teams ${sql(row)}
       on conflict (team_number) do update set ${sql(row)}
@@ -64,7 +57,7 @@ export async function POST(req: Request) {
     await logActivity(req, "action", `Profiled team ${n}`, { team: n });
     return Response.json(saved);
   } catch (err) {
-    const msg = err instanceof Anthropic.APIError ? `${err.status}: ${err.message}` : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 500 });
   }
 }
