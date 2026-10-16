@@ -116,18 +116,18 @@ function Planner({ year, p, ask, makeTasks }: { year: number; p: Plan; ask: (t: 
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <fieldset className="game-card space-y-1">
+        <fieldset className="game-card space-y-1 [&>legend+*]:clear-both">
           <legend className="eyebrow text-zinc-500 float-left w-full mb-2">Business model portfolio</legend>
           <Stepper label="Core" hint={`+${capM(BM_VALUE.core)}`} value={l.core} set={set("core")} />
           <Stepper label="Growth" hint={`+${capM(BM_VALUE.growth)}`} value={l.growth} set={set("growth")} />
           <Stepper label="Explore" hint={`+${capM(BM_VALUE.explore)}`} value={l.explore} set={set("explore")} />
           <p className="text-xs text-zinc-500">Today: {p.units.core} / {p.units.growth} / {p.units.explore}. The board limits how many models each analyst level accepts.</p>
         </fieldset>
-        <fieldset className="game-card space-y-1">
+        <fieldset className="game-card space-y-1 [&>legend+*]:clear-both">
           <legend className="eyebrow text-zinc-500 float-left w-full mb-2">Analyst ratings</legend>
           {ANALYST_NAMES.map((n, i) => <Stepper key={n} label={n} hint={`${ANALYST_VALUE[i] > 0 ? "+" : "−"}${capM(Math.abs(ANALYST_VALUE[i]))}`} value={l.analysts[i]} set={setA(i)} />)}
         </fieldset>
-        <fieldset className="game-card space-y-1">
+        <fieldset className="game-card space-y-1 [&>legend+*]:clear-both">
           <legend className="eyebrow text-zinc-500 float-left w-full mb-2">Cash, bonds & shares</legend>
           <Stepper label="Cash counted ($M)" value={Math.round(l.cash / 1e6)} set={(n) => setL({ ...l, cash: n * 1e6 })} step={5} />
           <Stepper label="Bond raise ($M)" value={bond} set={setBond} step={25} />
