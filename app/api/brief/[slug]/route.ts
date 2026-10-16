@@ -4,6 +4,7 @@ import { logActivity } from "@/lib/activity";
 import { BRIEFS, Brief } from "@/lib/brief";
 import { buildContext } from "@/lib/context";
 import { sql } from "@/lib/db";
+import { outlookPrompt } from "@/lib/deck-data";
 
 export const maxDuration = 300;
 const client = new Anthropic();
@@ -23,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       model: "claude-opus-5-5", max_tokens: 24000, thinking: { type: "adaptive" },
       output_config: { effort: "medium", format: zodOutputFormat(Brief) },
       system: await buildContext(),
-      messages: [{ role: "user", content: b.ask }],
+      messages: [{ role: "user", content: b.investorData ? `${b.ask}\n\nOUR INVESTOR DATA:\n${await outlookPrompt()}` : b.ask }],
     }).finalMessage();
     if (msg.stop_reason !== "end_turn") return Response.json({ error: `Writing stopped early (${msg.stop_reason}). Try again.` }, { status: 502 });
     const parsed = Brief.safeParse(JSON.parse(msg.content.flatMap((x) => (x.type === "text" ? [x.text] : [])).join("")));

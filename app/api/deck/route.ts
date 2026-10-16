@@ -3,23 +3,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { buildContext } from "@/lib/context";
 import { listRounds } from "@/lib/rounds";
-import { sql, type Strategy } from "@/lib/db";
-import { defaultOutlook, financingPlanText, outlookBaseFrom, outlookText, type PlanStrat } from "@/lib/outlook";
-import { getSnapshot } from "@/lib/snapshot";
+import { sql } from "@/lib/db";
+import { outlookPrompt } from "@/lib/deck-data";
 import { Deck, DECK_EVENT as EVENT } from "@/lib/deck";
 
 export const maxDuration = 300;
 
 const client = new Anthropic();
-
-async function outlookPrompt() {
-  const [[st], snap] = await Promise.all([sql<Strategy[]>`select current_year, goal_year, outlook from strategy where id = 1`, getSnapshot()]);
-  const o = { ...defaultOutlook(st.current_year, st.goal_year), ...(st.outlook ?? {}) };
-  const strats = await sql<PlanStrat[]>`select name, status, year, scale, category, effect from financing_ideas where status in ('locked', 'pitching')`;
-  const comps = await sql<{ company: string; ticker: string; valuation_usd_b: number | null; basis: string; as_of: string; revenue_usd_b: number | null }[]>`select company, ticker, valuation_usd_b, basis, as_of, revenue_usd_b from comps where batch = (select max(batch) from comps)`;
-  const compsText = comps.map((c) => `${c.company} (${c.ticker}): ${c.valuation_usd_b === null ? "n/a" : `$${c.valuation_usd_b}B`} ${c.basis}, ${c.as_of}${c.revenue_usd_b !== null ? `, revenue $${c.revenue_usd_b}B` : ""}`).join("\n") || "(none researched yet)";
-  return `${outlookText(outlookBaseFrom(snap, st.current_year), o)}\n\nCOMPARABLES (dated; the value pools for space and fintech):\n${compsText}\n\nFINANCING PLAN (by instrument; use it on the deliver slide - say plainly whether we sell shares, issue bonds or take loans, raise partner/customer money, and how we return cash; and say how the NEW VENTURES (Terralink space and fintech) are funded: the initial funding raised now - including any advisor-structured raise and its fee - and then the launch capital from the sale):\n${financingPlanText(strats, o)}`;
-}
 
 const ASK = `Write our deck for the ${EVENT} (management event card): "Prepare a short presentation outlining
 your key achievements over the past twelve months. Present your financial results for the year. Most

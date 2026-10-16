@@ -64,7 +64,7 @@ export function BriefView({ slug, embedded = false }: { slug: string; embedded?:
               className={`${k === n ? "flex" : "hidden"} print:flex print:break-after-page w-full max-w-6xl aspect-video flex-col rounded-xl overflow-hidden shadow-2xl bg-surface text-foreground print:shadow-none print:rounded-none`}>
               {sl.kind === "title" ? (
                 <div className="certificate flex-1 !rounded-none p-10 flex flex-col justify-end">
-                  <p className="relative eyebrow text-amber-300">Update for the Vice-chair · Risk committee</p>
+                  <p className="relative eyebrow text-amber-300">{meta?.event}</p>
                   <h1 className="relative figure text-5xl sm:text-7xl mt-2">{brief.content.title}</h1>
                   <p className="relative font-display text-2xl text-white/90 mt-2 normal-case">{sl.headline}</p>
                   <p className="relative text-white/70 mt-4">{brief.content.subtitle}</p>
@@ -75,7 +75,12 @@ export function BriefView({ slug, embedded = false }: { slug: string; embedded?:
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind}</p>
                     <h2 className="text-2xl sm:text-3xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  {sl.kind === "scenarios" || sl.kind === "impact" || sl.kind === "navigate" ? (
+                  {sl.kind === "valuation" && (brief.content.valuation ?? []).length > 0 ? (
+                    <div className="grid lg:grid-cols-[1fr_1.4fr] gap-6 items-center">
+                      <ul className="space-y-2 text-lg">{sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}</ul>
+                      <ValuationBars parts={brief.content.valuation} />
+                    </div>
+                  ) : sl.kind === "scenarios" || sl.kind === "impact" || sl.kind === "navigate" ? (
                     <div className="min-h-0 grid grid-cols-3 gap-3">
                       {sc.map((x) => (
                         <div key={x.name} className="rounded-lg border-t-4 bg-zinc-50 dark:bg-zinc-900 p-3 space-y-1.5 text-sm overflow-hidden" style={{ borderColor: SEV[x.severity] }}>
@@ -109,6 +114,29 @@ export function BriefView({ slug, embedded = false }: { slug: string; embedded?:
           </nav>
         </main>
       )}
+    </div>
+  );
+}
+
+// The sum of the parts against the price: one bar per part, then the total.
+function ValuationBars({ parts }: { parts: { part: string; method: string; basis: string; value_b: number }[] }) {
+  const total = parts.reduce((a, p) => a + p.value_b, 0), max = Math.max(total, ...parts.map((p) => p.value_b), 1);
+  const colors = ["var(--core)", "var(--growth)", "var(--explore)", "#7c6aa8", "var(--gold)", "#0e7490"];
+  return (
+    <div className="space-y-2">
+      {parts.map((p, i) => (
+        <div key={p.part} className="grid grid-cols-[10rem_1fr_5rem] items-center gap-2 text-sm">
+          <span className="text-right leading-tight">{p.part}<span className="block text-xs text-zinc-500">{p.method}</span></span>
+          <span className="h-6 rounded bg-zinc-100 dark:bg-zinc-800 relative"><span className="absolute inset-y-0 left-0 rounded" style={{ width: `${(p.value_b / max) * 100}%`, background: colors[i % colors.length] }} /></span>
+          <span className="tabular-nums font-semibold">${p.value_b.toFixed(1)}B</span>
+        </div>
+      ))}
+      <div className="grid grid-cols-[10rem_1fr_5rem] items-center gap-2 text-sm font-bold border-t border-zinc-300 pt-2">
+        <span className="text-right">Total</span>
+        <span className="h-6 rounded bg-[var(--ink)]" style={{ width: `${(total / max) * 100}%` }} />
+        <span className="tabular-nums">${total.toFixed(1)}B</span>
+      </div>
+      <p className="text-xs text-zinc-500">{parts.map((p) => `${p.part}: ${p.basis}`).join(" · ")}</p>
     </div>
   );
 }

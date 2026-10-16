@@ -3,7 +3,27 @@ import { ROLE_IDS } from "@/lib/roles";
 
 // Short briefing decks answering a management task card (e.g. the AI Bubble update for the Vice-chair).
 // Stored in `decks` under their own event name; one generator, one page, one PowerPoint for all of them.
-export const BRIEFS: Record<string, { event: string; label: string; ask: string }> = {
+export const BRIEFS: Record<string, { event: string; label: string; ask: string; investorData?: boolean }> = {
+  "sale-case": {
+    event: "The business case for selling our core business for $60B",
+    label: "Why sell for $60B",
+    investorData: true,
+    ask: `Write the compelling, honest BUSINESS CASE for selling our core business (the vehicle business and Dragon Nexus,
+with the network effect and the UX our loyal customers love) to a strategic buyer for $60B - for our board, our
+shareholders and a buyer's board. About 3 minutes spoken (all notes together 380-460 words). Leave "scenarios" empty.
+
+Slides, in order: title; rationale (why sell, why now, why a strategic buyer: what they get - plants, legacy systems, the
+Dragon Nexus platform, the customer base and network - and what we keep: the core human brains, rebuilt AI-native as
+Terralink with none of the legacy infrastructure); valuation (why $60B: a sum of the parts - vehicle business, Dragon
+Nexus platform, customer base & network, data assets, strategic premium/synergies - give each part its method, the
+multiple or basis, the value and the evidence; use the team's bridge inputs when set, otherwise PROPOSE multiples
+justified by the dated COMPARABLES and say they are our assumptions; the parts must add up to about $60B and say so
+plainly); proceeds (what the $60B does: repay the $900M+ debt, special dividend, buyback, KingsRock-funded and sale-funded
+Terralink launch capital for space and fintech, from the financing plan); returns (what a shareholder gets step by step:
+EPS, share price, dividends, total return - from the earnings outlook); risks (gates: lead-lender consent, facilitator
+ruling on a third-party sale, AI-bubble timing, buyer financing, what must be true); ask (what we ask the board to approve).
+Never invent statistics, buyer names or quotes; [placeholders] where we have no number.`,
+  },
   "ai-bubble": {
     event: "AI Bubble · update for the Vice-chair (management task #49)",
     label: "AI Bubble update",
@@ -32,7 +52,7 @@ const Scenario = z.object({
   our_moves: z.array(z.string()).describe("2-4 pre-agreed actions if it happens"),
 });
 const Slide = z.object({
-  kind: z.enum(["title", "scenarios", "impact", "navigate", "ask"]),
+  kind: z.enum(["title", "scenarios", "impact", "navigate", "rationale", "valuation", "proceeds", "returns", "risks", "ask"]),
   headline: z.string().describe("The slide's message as a sentence"),
   bullets: z.array(z.string()).describe("2-5 short lines"),
   speaker: z.enum(ROLE_IDS),
@@ -40,7 +60,12 @@ const Slide = z.object({
 });
 export const Brief = z.object({
   title: z.string(), subtitle: z.string(),
-  scenarios: z.array(Scenario).describe("Exactly three, mild to severe"),
-  slides: z.array(Slide).describe("In order: title, scenarios, impact, navigate, ask"),
+  scenarios: z.array(Scenario).describe("Exactly three, mild to severe, for a scenario briefing; empty otherwise"),
+  valuation: z.array(z.object({
+    part: z.string(), method: z.string().describe("e.g. 'after-tax earnings x P/E' or 'revenue x EV/revenue'"),
+    basis: z.string().describe("The multiple or basis and where it comes from (a comparable with its date, or 'team assumption')"),
+    value_b: z.number().describe("$ billions"),
+  })).describe("The sum-of-the-parts bridge for a valuation case (should add up to the target); empty otherwise"),
+  slides: z.array(Slide).describe("In the order the task asks for"),
 });
 export type BriefT = z.infer<typeof Brief>;

@@ -21,7 +21,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     slide.addNotes(`${who(s.speaker)}\n\n${s.notes}`);
     if (s.kind === "title") {
       slide.background = { color: PLUM };
-      slide.addText("UPDATE FOR THE VICE-CHAIR  ·  RISK COMMITTEE", { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
+      slide.addText(b.event.toUpperCase(), { x: 0.7, y: 0.6, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: GOLD, bold: true, charSpacing: 2 });
       slide.addText(d.title, { x: 0.7, y: 2.3, w: 12, h: 1.4, fontFace: FONT, fontSize: 48, color: "FFFFFF", bold: true });
       slide.addText(s.headline, { x: 0.7, y: 3.8, w: 11.5, h: 1.2, fontFace: FONT, fontSize: 22, color: "FFFFFF" });
       slide.addText(d.subtitle, { x: 0.7, y: 5.2, w: 11.5, h: 0.8, fontFace: FONT, fontSize: 14, color: "D9CCE8" });
@@ -31,7 +31,16 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
     slide.addText(s.kind.toUpperCase(), { x: 0.6, y: 0.35, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
     slide.addText(s.headline, { x: 0.6, y: 0.7, w: 12.1, h: 1.0, fontFace: FONT, fontSize: 24, color: INK, bold: true, valign: "top" });
-    if (["scenarios", "impact", "navigate"].includes(s.kind)) {
+    if (s.kind === "valuation" && (d.valuation ?? []).length) {
+      const parts = d.valuation, total = parts.reduce((a, p) => a + p.value_b, 0), max = Math.max(total, 1);
+      slide.addText(s.bullets.map((t) => ({ text: t, options: { bullet: { code: "25B8" }, breakLine: true } })), { x: 0.6, y: 1.9, w: 5.4, h: 4.8, fontFace: FONT, fontSize: 15, color: INK, valign: "top", paraSpaceAfter: 8 });
+      [...parts, { part: "Total", method: "", basis: "", value_b: total }].forEach((p, j) => {
+        const yy = 1.95 + j * 0.62, w = (p.value_b / max) * 4.2, col = p.part === "Total" ? INK : ["3557B0", "2F8FB5", "6A4BC4", "7C6AA8", GOLD, "0E7490"][j % 6];
+        slide.addText(p.part, { x: 6.3, y: yy, w: 2.2, h: 0.5, fontFace: FONT, fontSize: 11, color: INK, align: "right", valign: "middle", bold: p.part === "Total" });
+        slide.addShape(pptx.ShapeType.rect, { x: 8.6, y: yy + 0.08, w: Math.max(0.02, w), h: 0.34, fill: { color: col }, line: { color: col } });
+        slide.addText(`$${p.value_b.toFixed(1)}B`, { x: 8.7 + w, y: yy, w: 1.2, h: 0.5, fontFace: FONT, fontSize: 11, bold: true, color: INK, valign: "middle" });
+      });
+    } else if (["scenarios", "impact", "navigate"].includes(s.kind)) {
       d.scenarios.forEach((x, j) => {
         const cx = 0.6 + j * 4.1, col = SEV[x.severity] ?? GREY;
         slide.addShape(pptx.ShapeType.rect, { x: cx, y: 1.85, w: 3.9, h: 0.08, fill: { color: col }, line: { color: col } });
