@@ -21,7 +21,7 @@ export function KeyNumbers({ version }: { version: number }) {
   const cards = [
     { k: "Cash we have", v: money(p.cash), tone: p.cash < 0 ? "neg" : "", lines: [`End of Year ${y} (cell N${33 + y})`, p.cash < 0 ? "Negative: this gap must be funded" : "What we can spend now"] },
     { k: "Raised so far", v: money(raised), tone: "", lines: [`Debt drawn ${money(p.debt)} (local bank loan)`, `New equity ${p.sharesIssued ? `${(p.sharesIssued / 1e6).toFixed(0)}M shares` : "none issued"}`, p.lockedCash ? `Locked capital strategies ${money(p.lockedCash)}` : "No capital strategy locked yet"] },
-    { k: `Year ${y} revenue`, v: money(p.bmRevenue), tone: "", lines: ["From our business models (F" + (33 + y) + ")", p.oneTime ? `+ ${money(p.oneTime)} one-time (E${33 + y}; the audit says it's the loan, not revenue)` : "No one-time revenue"] },
+    { k: `Year ${y} revenue`, v: money(p.bmRevenue), tone: "", lines: ["From our business models (F" + (33 + y) + ")", p.oneTime < 0 ? `${money(p.oneTime)} one-off cost booked in E${33 + y} (the "one-time" column; e.g. a BUST): reduces profit, not revenue` : p.oneTime > 0 ? `+ ${money(p.oneTime)} one-time income (E${33 + y})` : "No one-off items"] },
     { k: `Year ${y} profit`, v: money(p.net), tone: p.net < 0 ? "neg" : "pos", lines: [`Net profit after interest, tax (M${33 + y})`, `EBITDA ${money(p.ebitda)}: operating profit before interest`, p.net < 0 && p.ebitda > 0 ? "The loss is interest: K" + (33 + y) + " (flagged by the audit)" : `Revenue − expenses ${money(p.revenue - p.expenses)}`] },
   ];
   return (
