@@ -70,6 +70,9 @@ THE CASE (from the team's handoff; treat unconfirmed items as assumptions)
     with another team (share swap, no cash sale). We RETAIN our existing businesses that have strong valuations
     and strengthen the core with an AI-connected layer that lets the combined company scale. The Innovation
     Strategy BUY card is NOT used for this deal. Partner team, exchange ratio and their numbers are [to confirm].
+    The partner is Team 5 (GN-Automaker). The combined group is NEXUS: one board, five business units
+    (Mobility, Chip Mfg, Energy, Fintech, Terralink), each with its own CEO, joined by the Nexus AI layer. Why it
+    works: energy, chip manufacturing, fintech and mobility give a complete, strong foundation.
     Where the sell-the-core endgame or the acquisition message below conflict with this, this wins.
   * ACQUISITION MESSAGE: we keep the core human brains (the people, their judgment and know-how) and go
     AI-native. The buyer gets the legacy infrastructure (plants, old systems) - we don't need it; Terralink is
