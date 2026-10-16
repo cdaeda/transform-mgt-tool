@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import PptxGenJS from "pptxgenjs";
 import { sql, type Strategy } from "@/lib/db";
 import { DECK_EVENT, type DeckT } from "@/lib/deck";
@@ -5,6 +7,7 @@ import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
 import { listRounds } from "@/lib/rounds";
 import { getSnapshot } from "@/lib/snapshot";
+import { TOOL_SLIDES, type ToolShot } from "@/lib/tool-slides";
 import type { StrategyDocT } from "@/lib/strategy-doc";
 
 // The Shareholder Day deck as an editable PowerPoint: Claude's narrative + live workbook charts.
@@ -112,6 +115,32 @@ export async function GET() {
     }
     slide.addText(`Flying Dragon · ${DECK_EVENT}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
     slide.addText(`Presenter: ${who(s.speaker)}   ${k + 1}`, { x: 6.7, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY, align: "right" });
+  });
+
+  // Appendix: how we use the Mgt Tool (screenshots; not part of the 3-minute talk).
+  TOOL_SLIDES.forEach((t, j) => {
+    const slide = pptx.addSlide();
+    const k = deck.slides.length + j + 1;
+    slide.addNotes("Appendix: not part of the 3:00. Show if asked how we run the company.");
+    slide.background = { color: "FFFFFF" };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
+    slide.addText("APPENDIX · HOW WE USE THE MGT TOOL", { x: 0.6, y: 0.3, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
+    slide.addText(t.headline, { x: 0.6, y: 0.62, w: 12.1, h: 0.6, fontFace: FONT, fontSize: 24, color: INK, bold: true });
+    slide.addText(t.lede, { x: 0.6, y: 1.22, w: 12.1, h: 0.5, fontFace: FONT, fontSize: 12, color: GREY });
+    // Fit each screenshot inside its box (keeps the aspect ratio), caption underneath.
+    const place = (sh: ToolShot, x: number, y: number, w: number, h: number) => {
+      const ih = h - 0.35, r = Math.min(w / sh.w, ih / sh.h), iw = sh.w * r, ihh = sh.h * r;
+      const data = readFileSync(path.join(process.cwd(), "public", sh.src)).toString("base64");
+      slide.addImage({ data: `image/jpeg;base64,${data}`, x: x + (w - iw) / 2, y, w: iw, h: ihh });
+      slide.addText(sh.caption, { x, y: y + ihh + 0.03, w, h: 0.3, fontFace: FONT, fontSize: 10, color: GREY, align: "center" });
+    };
+    const top = 1.85, H = 4.95;
+    if (t.tall) {
+      place(t.shots[0], 0.6, top, 3.4, H);
+      t.shots.slice(1).forEach((sh, i) => place(sh, 4.3, top + i * (H / 3), 8.4, H / 3));
+    } else t.shots.forEach((sh, i) => place(sh, 0.6 + (i % 2) * 6.2, top + Math.floor(i / 2) * (H / 2), 5.9, H / 2));
+    slide.addText(`Flying Dragon · ${DECK_EVENT}`, { x: 0.6, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY });
+    slide.addText(`Appendix   ${k}`, { x: 6.7, y: 7.0, w: 6, h: 0.3, fontFace: FONT, fontSize: 9, color: GREY, align: "right" });
   });
 
   const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;

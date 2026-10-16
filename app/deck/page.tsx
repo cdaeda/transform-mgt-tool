@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { DeckT } from "@/lib/deck";
 import { ANALYST_NAMES, marketCap } from "@/lib/marketcap";
 import { ROLES } from "@/lib/roles";
+import { TOOL_SLIDES, type ToolShot, type ToolSlide } from "@/lib/tool-slides";
 import { ComebackChart, useRounds } from "../comeback";
 import { DragonMark } from "../dragon-mark";
 import { useOverview } from "../overview-store";
@@ -116,15 +117,16 @@ export default function DeckPage() {
     fetch("/api/strategy-doc").then((r) => r.json()).then(setDoc, () => {});
   }, []);
   const slides = deck?.content.slides ?? [];
+  const count = slides.length ? slides.length + TOOL_SLIDES.length : 0; // appendix: how we use the tool
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (["ArrowRight", "PageDown", " "].includes(e.key)) setN((x) => Math.min(slides.length - 1, x + 1));
+      if (["ArrowRight", "PageDown", " "].includes(e.key)) setN((x) => Math.min(count - 1, x + 1));
       if (["ArrowLeft", "PageUp"].includes(e.key)) setN((x) => Math.max(0, x - 1));
       if (e.key.toLowerCase() === "n") setNotes((v) => !v);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [slides.length]);
+  }, [count]);
 
   async function generate() {
     setBusy(true);
@@ -150,7 +152,7 @@ export default function DeckPage() {
         <Link href="/#finance/investor-relations" className="wordmark text-lg">TRANSFORM!</Link>
         <span className="font-display uppercase tracking-wide text-white/90">{deck?.content.title ?? "Annual Shareholder Meeting & Analyst Day"}</span>
         <span className="ml-auto flex items-center gap-2 text-sm text-white/85">
-          {slides.length > 0 && <span className="tabular-nums">{n + 1} / {slides.length}</span>}
+          {slides.length > 0 && <span className="tabular-nums">{n + 1} / {count}</span>}
           {slides.length > 0 && <span className={`tabular-nums rounded px-1.5 ${total > 180 ? "bg-red-600 text-white" : "bg-white/15"}`} title="Speaking time at ~170 words a minute">⏱ {mmss(total)} / 3:00</span>}
           <button onClick={() => setNotes(!notes)} className="rounded border border-white/30 px-2 py-0.5">{notes ? "Hide" : "Show"} notes (N)</button>
           <button onClick={() => window.print()} className="rounded border border-white/30 px-2 py-0.5">Print / PDF</button>
@@ -197,6 +199,12 @@ export default function DeckPage() {
               </footer>
             </section>
           ))}
+          {TOOL_SLIDES.map((t, j) => <ToolSlideView key={`tool-${j}`} t={t} k={slides.length + j} n={n} />)}
+          {notes && !s && n >= slides.length && (
+            <aside className="w-full max-w-6xl rounded-lg bg-zinc-800 text-zinc-100 p-4 print:hidden">
+              <p className="eyebrow text-amber-300">Appendix · not part of the 3:00 · show if asked how we run the company</p>
+            </aside>
+          )}
           {notes && s && (
             <aside className="w-full max-w-6xl rounded-lg bg-zinc-800 text-zinc-100 p-4 print:hidden">
               <p className="eyebrow text-amber-300">Speaker notes · {who(s.speaker)} · ⏱ {mmss(secs(s.notes))}</p>
@@ -204,7 +212,7 @@ export default function DeckPage() {
             </aside>
           )}
           <nav className="flex gap-2 print:hidden" aria-label="Slides">
-            {slides.map((_, k) => <button key={k} onClick={() => setN(k)} aria-label={`Go to slide ${k + 1}`} aria-current={k === n} className={`w-2.5 h-2.5 rounded-full ${k === n ? "bg-[var(--gold)]" : "bg-white/30"}`} />)}
+            {Array.from({ length: count }, (_, k) => <button key={k} onClick={() => setN(k)} aria-label={`Go to slide ${k + 1}`} aria-current={k === n} className={`w-2.5 h-2.5 rounded-full ${k === n ? "bg-[var(--gold)]" : "bg-white/30"}`} />)}
           </nav>
         </main>
       )}
@@ -213,3 +221,40 @@ export default function DeckPage() {
 }
 
 const DECK_LABEL = "Annual Shareholder Meeting & Analyst Day";
+
+function Shot({ s }: { s: ToolShot }) {
+  return (
+    <figure className="min-h-0 flex flex-col gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static screenshots */}
+      <img src={s.src} width={s.w} height={s.h} alt={s.caption} className="min-h-0 flex-1 w-full object-contain object-top rounded-md border border-zinc-200 dark:border-zinc-700 bg-white" />
+      <figcaption className="text-xs text-zinc-500 leading-snug">{s.caption}</figcaption>
+    </figure>
+  );
+}
+
+// Appendix: real screenshots of the Mgt Tool in use. A tall shot (the copilot) gets its own column.
+function ToolSlideView({ t, k, n }: { t: ToolSlide; k: number; n: number }) {
+  return (
+    <section aria-label={`Slide ${k + 1}`} aria-hidden={k !== n}
+      className={`${k === n ? "flex" : "hidden"} print:flex print:break-after-page w-full max-w-6xl aspect-video flex-col rounded-xl overflow-hidden shadow-2xl bg-surface text-foreground print:shadow-none print:rounded-none`}>
+      <div className="flex-1 min-h-0 grid grid-rows-[auto_1fr] p-6 sm:p-8 gap-4">
+        <div>
+          <p className="eyebrow text-amber-700 dark:text-amber-300">Appendix · how we use the Mgt Tool</p>
+          <h2 className="text-2xl sm:text-3xl leading-tight normal-case tracking-normal">{t.headline}</h2>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">{t.lede}</p>
+        </div>
+        {t.tall ? (
+          <div className="min-h-0 grid grid-cols-[1fr_2.4fr] gap-4">
+            <Shot s={t.shots[0]} />
+            <div className="min-h-0 grid grid-rows-3 gap-3">{t.shots.slice(1).map((x) => <Shot key={x.src} s={x} />)}</div>
+          </div>
+        ) : (
+          <div className="min-h-0 grid grid-cols-2 grid-rows-2 gap-3">{t.shots.map((x) => <Shot key={x.src} s={x} />)}</div>
+        )}
+      </div>
+      <footer className="flex justify-between px-8 py-2 text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
+        <span>Flying Dragon · {DECK_LABEL}</span><span>Appendix</span><span>{k + 1}</span>
+      </footer>
+    </section>
+  );
+}
