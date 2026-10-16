@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DIVIDEND_PRESETS, NEW_NAME, defaultOutlook, outlook, type Outlook, type OutlookBase, type OutlookRow } from "@/lib/outlook";
 import { refreshOverview, useOverview } from "./overview-store";
 
-type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook> };
+type O = { year: number; goal: { year: number; cap: number }; outlookBase: OutlookBase; outlook: Partial<Outlook>; certificate?: { caps: number[] } };
 type Roi = ReturnType<typeof outlook>["roi"];
 
 const money = (n: number) => {
@@ -19,7 +19,7 @@ export function useInvestorCase(version: number) {
   const d = o?.data?.outlookBase ? o.data : null;
   if (!d) return null;
   const saved: Outlook = { ...defaultOutlook(d.year, d.goal.year), ...(d.outlook ?? {}) };
-  return { base: d.outlookBase, saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
+  return { base: d.outlookBase, game: d.certificate?.caps ?? [], saved, hasSaved: Object.keys(d.outlook ?? {}).length > 0, goal: d.goal, run: (x: Outlook) => outlook(d.outlookBase, x) };
 }
 
 // Top-down, step by step: what we earn, what the market pays for it, and what a shareholder gets.
@@ -45,6 +45,45 @@ export function Ladder({ r, roi, o, className = "grid gap-2 sm:grid-cols-4 lg:gr
         </li>
       ))}
     </ol>
+  );
+}
+
+// What the company is worth each year, and what that value is made of.
+export function ValuationPath({ rows, o, game }: { rows: OutlookRow[]; o: Outlook; game: number[] }) {
+  const sale = o.saleYear ? o.salePriceB * 1e9 : 0;
+  const max = Math.max(1, ...rows.map((r) => r.valuation), sale);
+  return (
+    <section className="rounded-lg bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 p-3 space-y-2" aria-label="Valuation by year">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-lg">Valuation by year</h3>
+        <span className="text-xs text-zinc-500 flex flex-wrap gap-3">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[var(--growth)]" />earnings × {o.pe} P/E</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-700" />cash held</span>
+          {sale > 0 && <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[var(--gold)]" />sale price</span>}
+        </span>
+      </div>
+      <ol className="grid gap-3" style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(7rem, 1fr))` }}>
+        {rows.map((r) => {
+          const h = (v: number) => `${(Math.max(0, v) / max) * 100}%`, sold = r.year === o.saleYear;
+          return (
+            <li key={r.year} className="space-y-1 min-w-0">
+              <p className="eyebrow text-zinc-500">Year {r.year} · {r.company}</p>
+              <div className="h-28 flex items-end gap-1">
+                <div className="flex-1 h-full flex flex-col justify-end" title={`Valuation ${money(r.valuation)}`}>
+                  <span className="rounded-t bg-indigo-700" style={{ height: h(r.cashValue) }} />
+                  <span className={`bg-[var(--growth)] ${r.cashValue ? "" : "rounded-t"}`} style={{ height: h(r.earningsValue) }} />
+                </div>
+                {sold && <span className="flex-1 rounded-t bg-[var(--gold)]" style={{ height: h(sale) }} title={`Sold for $${o.salePriceB}B`} />}
+              </div>
+              <p className="font-display text-2xl tabular-nums leading-none">{money(r.valuation)}</p>
+              <p className="text-xs text-zinc-500 leading-snug">{money(r.earningsValue)} earnings value{r.cashValue ? ` + ${money(r.cashValue)} cash` : ""}{sold ? ` · business sold for $${o.salePriceB}B` : ""}</p>
+              {game[r.year - 1] !== undefined && <p className="text-xs text-zinc-400">game score (workbook): {money(game[r.year - 1] * 1e6)}</p>}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="text-xs text-zinc-500">Investor view: what the market pays for our earnings at a {o.pe}× P/E, plus the cash on the balance sheet. The game score is the workbook&rsquo;s own formula (business models + analyst ratings + cash × 100); a year it hasn&rsquo;t filled in shows $0.</p>
+    </section>
   );
 }
 
@@ -85,6 +124,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-3xl">
           <p className="eyebrow text-amber-700 dark:text-amber-300">The investor case · Flying Dragon → {NEW_NAME}</p>
+          <p className="font-display text-xl text-indigo-800 dark:text-indigo-300">Valued at {money(last.valuation)} in Year {last.year}{o.saleYear ? ` · the business sells for $${o.salePriceB}B in Year ${o.saleYear}` : ""}</p>
           <h2 className="text-2xl sm:text-3xl leading-tight">{roi ? `${ps(o.entryPrice)} today → ${ps(roi.endPrice)} a share + ${ps(roi.dividends)} in dividends: ${roi.multiple.toFixed(1)}× by Year ${last.year}` : "Earnings outlook: from revenue to share price"}</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">{o.saleYear ? `The dragon is shedding: we sell the vehicle + Dragon Nexus business in Year ${o.saleYear} for $${o.salePriceB}B, repay debt, return cash to shareholders, and launch ${NEW_NAME}, the terrestrial link to space mobility.` : "No sale in this outlook yet: set one under Assumptions."} Year {ic.base.now} is the workbook; later years are the team&rsquo;s assumptions, not forecasts.</p>
         </div>
@@ -96,6 +136,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
         </div>
       </div>
 
+      <ValuationPath rows={rows} o={o} game={ic.game} />
       <Ladder r={last} roi={roi} o={o} />
       {sale && (
         <div className="rounded-lg border-l-4 border-[var(--gold)] bg-white/70 dark:bg-zinc-900/60 px-3 py-2 text-sm">
@@ -119,6 +160,7 @@ export function InvestorCase({ version, ask }: { version: number; ask: (t: strin
             {line("EPS", (r) => ps(r.eps), true, (r) => r.eps < 0)}
             {line("Cash held per share", (r) => (r.cashPerShare ? ps(r.cashPerShare) : "—"))}
             {line(`Share price (EPS × ${o.pe} + cash)`, (r) => ps(r.price), true)}
+            {line("Valuation (share price × shares)", (r) => money(r.valuation), true)}
             {line("DPS (incl. special)", (r) => ps(r.dps), true)}
           </tbody>
         </table>

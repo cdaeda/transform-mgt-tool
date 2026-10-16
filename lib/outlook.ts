@@ -98,7 +98,9 @@ export function outlook(b: OutlookBase, o: Outlook) {
     const cashPerShare = Math.max(0, netCash) / shares;
     const price = Math.max(0, eps * o.pe) + cashPerShare; // earnings value + the cash Terralink holds
     cumDps += dps;
-    rows.push({ year, company: sold ? NEW_NAME : "Flying Dragon", vehicles, nexus, gmv: sold ? 0 : (o.nexusGmv[i] ?? 0) * M, other, oneTime, revenue, vehicleCost, nexusCost, otherCost, costBase, ebitda, interest, depreciation, tax, net, shares, eps, price, cashPerShare, dps, cumDps, saleProceeds, events });
+    rows.push({ year, company: sold ? NEW_NAME : "Flying Dragon", vehicles, nexus, gmv: sold ? 0 : (o.nexusGmv[i] ?? 0) * M, other, oneTime, revenue, vehicleCost, nexusCost, otherCost, costBase, ebitda, interest, depreciation, tax, net, shares, eps, price, cashPerShare, dps, cumDps, saleProceeds, events,
+      // Valuation = what the market pays for the earnings (EPS x P/E) plus the cash Terralink holds.
+      earningsValue: Math.max(0, eps * o.pe) * shares, cashValue: Math.max(0, netCash), valuation: price * shares });
   }
   // Investor return: buy at the entry price today, collect every dividend, hold to the last year's price.
   const last = rows[rows.length - 1];

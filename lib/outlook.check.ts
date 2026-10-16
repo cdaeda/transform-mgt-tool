@@ -29,4 +29,5 @@ assert.ok(r.rows[2].cashPerShare > 25); // Terralink holds 40% of ~$54B on ~0.7B
 // With the workbook's per-year projection, later years follow it (not this year's figure).
 const wb = outlook({ ...base, vehicleRevY: [100e6, 150e6, 150e6, 0, 0, 0, 0, 0, 0, 0], vehicleCostY: [60e6, 60e6, 60e6, 0, 0, 0, 0, 0, 0, 0] }, o);
 assert.equal(wb.rows[1].vehicles, 150e6);
+assert.equal(Math.round(r.rows[2].valuation), Math.round(r.rows[2].earningsValue + r.rows[2].cashValue)); // value = earnings x P/E + cash
 console.log("outlook ok");
