@@ -5,7 +5,7 @@ import { SQUARES } from "@/lib/squares";
 import type { Seed } from "./copilot";
 
 // Shrink phone photos so the upload stays far under Vercel's 4.5 MB body limit.
-async function toJpegBase64(file: File) {
+export async function toJpegBase64(file: File) {
   const img = await createImageBitmap(file);
   const scale = Math.min(1, 1568 / Math.max(img.width, img.height));
   const canvas = document.createElement("canvas");
@@ -17,9 +17,10 @@ async function toJpegBase64(file: File) {
 
 // One way in for everything: a card photo, a handout, or a typed thought. Claude works out the
 // intent and opens a new copilot thread with options.
-export function CaptureModal({ open, onClose, onSeed, onNote }: { open: boolean; onClose: () => void; onSeed: (s: Seed) => void; onNote: (text: string) => void }) {
+// preset: what a mobile quick action already captured (a photo) or asked for (the dice squares).
+export function CaptureModal({ open, onClose, onSeed, onNote, preset = {} }: { open: boolean; onClose: () => void; onSeed: (s: Seed) => void; onNote: (text: string) => void; preset?: { image?: string; roll?: boolean } }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [image, setImage] = useState<string | null>(null);
+  const [image, setImage] = useState<string | null>(preset.image ?? null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -68,7 +69,7 @@ export function CaptureModal({ open, onClose, onSeed, onNote }: { open: boolean;
           <button onClick={onClose} className="rounded-md border border-zinc-300 px-2 py-0.5 text-sm" aria-label="Close">✕</button>
         </div>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Snap a card, a handout or a whiteboard — or just type. The copilot works out what it is and asks what to do.</p>
-        <details className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-2" open={!!square}>
+        <details className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-2" open={!!square || preset.roll}>
           <summary className="cursor-pointer font-semibold text-sm">🎲 We rolled the dice ($100k) — where did we land?</summary>
           <div className="mt-2 flex flex-wrap gap-1.5 max-h-48 overflow-y-auto" role="radiogroup" aria-label="Square we landed on">
             {SQUARES.map((q) => (

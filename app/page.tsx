@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { col2n, freeRow, n2col } from "@/lib/impact";
 const freeRowIndex = (rows: Cell[][]) => { const r = freeRow(0, rows); return r === null ? -1 : r; };
-import { CaptureModal } from "./capture";
+import { CaptureModal, toJpegBase64 } from "./capture";
 import { Copilot, type ActTask, type Pending, type Seed } from "./copilot";
 import { ActivityPanel } from "./activity";
 import { ProfitBorrow } from "./profit-borrow";
@@ -213,6 +213,9 @@ export default function Home() {
   const pendingRef = useRef<Pending>(null);
   const [flash, setFlash] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
+  // Remounts the capture modal with what a quick action brought (a photo, or the dice squares open).
+  const [capturePreset, setCapturePreset] = useState<{ image?: string; roll?: boolean; k: number }>({ k: 0 });
+  const openCapture = (p: { image?: string; roll?: boolean } = {}) => (setCapturePreset((x) => ({ ...p, k: x.k + 1 })), setCaptureOpen(true));
   const role = useMyRole();
   const cfo = role === "CFO";
   const [editMode, setEditMode] = useState(false);
@@ -228,7 +231,7 @@ export default function Home() {
   const setCapArea = (a: (typeof CAPITAL_AREAS)[number]) => goTo(`capital/${slug(a)}`);
   // Next-move buttons: do the thing they name.
   const go: Go = (a) => {
-    if (a.kind === "roll" || a.kind === "capture") return setCaptureOpen(true);
+    if (a.kind === "roll" || a.kind === "capture") return openCapture({ roll: a.kind === "roll" });
     if (a.kind === "deck") return setTab("Presentation");
     if (a.kind === "path") return setCapArea("Lever planner");
     if (a.kind === "capital") return setCapArea("Plan & strategies");
@@ -267,7 +270,7 @@ export default function Home() {
   const tool = "rounded-md px-2.5 py-1 text-sm text-white/85 hover:bg-white/10 hover:text-white";
   return (
     <div className="flex flex-col min-h-screen">
-      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onSeed={(seed) => (setChatOpen(true), threadRef.current(seed))} onNote={(t) => noteRef.current(t)} />
+      <CaptureModal key={capturePreset.k} preset={capturePreset} open={captureOpen} onClose={() => setCaptureOpen(false)} onSeed={(seed) => (setChatOpen(true), threadRef.current(seed))} onNote={(t) => noteRef.current(t)} />
       <RolePicker open={rolePicker || role === null} onDone={() => setRolePicker(false)} />
       <PresentReturn hash={hash} />
       <header className="board-bar">
@@ -280,7 +283,7 @@ export default function Home() {
             <span className="hidden sm:flex"><YearRound version={version} onChange={bump} /></span>
           </div>
           <div className="flex items-center gap-2 ml-auto sm:ml-0 order-last sm:order-none">
-            <button onClick={() => setCaptureOpen(true)} className="rounded-full bg-[var(--gold)] text-[var(--ink)] px-3 py-1 text-sm font-bold shadow whitespace-nowrap">＋ Capture</button>
+            <button onClick={() => openCapture()} className="rounded-full bg-[var(--gold)] text-[var(--ink)] px-3 py-1 text-sm font-bold shadow whitespace-nowrap">＋ Capture</button>
             <a href="/setup" className="hidden sm:inline rounded-full border border-white/30 px-2.5 py-1 text-xs text-white/90 hover:bg-white/10" title="How to set this app up">Setup</a>
             <a href="https://github.com/cdaeda/transform-mgt-tool" target="_blank" rel="noopener noreferrer" aria-label="Source code on GitHub" title="Source code on GitHub"
               className="hidden sm:inline rounded-full border border-white/30 p-1.5 text-white/90 hover:bg-white/10">
@@ -304,6 +307,15 @@ export default function Home() {
       </header>
       <div className="flex flex-col lg:flex-row flex-1">
         <main className="flex-1 min-w-0 p-3 sm:p-4 space-y-4 pb-20 lg:pb-4">
+          {/* Phones: the game-table actions come first. */}
+          <div className="sm:hidden grid grid-cols-2 gap-2" aria-label="Quick actions">
+            <label className="rounded-xl bg-[var(--gold)] text-[var(--ink)] font-bold py-4 text-center text-lg shadow cursor-pointer">
+              📷 Snap a card
+              <input type="file" accept="image/*" capture="environment" className="sr-only"
+                onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) openCapture({ image: await toJpegBase64(f) }); }} />
+            </label>
+            <button onClick={() => openCapture({ roll: true })} className="rounded-xl board-bar text-white font-bold py-4 text-lg shadow">🎲 Log a roll</button>
+          </div>
           {tab === "Dashboard" && <StrategyCard version={version} />}
           {tab !== "Presentation" && <MarketCapBar version={version} />}
           <nav className="flex gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap items-end relative z-10 !mb-0" aria-label="Sections">
