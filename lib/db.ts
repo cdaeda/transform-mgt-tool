@@ -32,6 +32,8 @@ export type Card = {
   card_text: string;
   capex: number;
   start_year: number;
+  drawn_year: number | null; // game year / round the card was drawn in (tagged at entry)
+  drawn_round: number | null;
   revenue: number[];
   cost: number[];
   recommendation: string;
@@ -52,6 +54,7 @@ export type Strategy = {
   opex_plan: string;
   medium_term: string;
   current_year: number;
+  current_round: number;
   core_strategy: string;
   knob: number;
   h1_pct: number;
@@ -97,6 +100,7 @@ export type FinancingIdea = {
   legal_basis: string;
   red_lines: string;
   pitch_to: string;
+  uses: { what: string; amount_m: number; horizon: string; why: string }[];
 };
 // What a capital strategy does to the market-cap levers when it lands (all optional, 0 = no change).
 export type Effect = { cash_m: number; core: number; growth: number; explore: number; analysts: number[]; shares_m: number; interest_m: number };

@@ -79,7 +79,9 @@ export async function POST(req: Request) {
       cost: bm ? ten(e.cost) : ten([]),
       start_year: Math.min(10, Math.max(1, e.start_year)),
     };
-    const [card] = await sql<Card[]>`insert into cards ${sql(row)} returning *`;
+    // Tag the card with the year / round we're in when it was drawn.
+    const [st] = await sql<{ current_year: number; current_round: number }[]>`select current_year, current_round from strategy where id = 1`;
+    const [card] = await sql<Card[]>`insert into cards ${sql({ ...row, drawn_year: st.current_year, drawn_round: st.current_round })} returning *`;
     await logActivity(req, "action", `Evaluated card #${card.id} (${card.type}): ${card.title} → ${card.recommendation}`, { card: card.id });
     return Response.json(card);
   } catch (err) {
@@ -88,7 +90,7 @@ export async function POST(req: Request) {
   }
 }
 
-const EDITABLE = ["status", "our_notes", "title", "type", "capex", "start_year", "revenue", "cost"] as const;
+const EDITABLE = ["status", "our_notes", "title", "type", "capex", "start_year", "revenue", "cost", "drawn_year", "drawn_round"] as const;
 
 // Our own edits: select / pass, what we want to do, and corrections to the numbers.
 export async function PATCH(req: Request) {

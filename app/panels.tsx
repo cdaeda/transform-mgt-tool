@@ -6,6 +6,7 @@ import { refreshOverview, useOverview } from "./overview-store";
 import type { Card, FinancingIdea, Strategy, Team } from "@/lib/db";
 import { impact, n2col, type ImpactCard } from "@/lib/impact";
 import { ANALYST_NAMES } from "@/lib/marketcap";
+import { CardTimeline } from "./simulator";
 
 // Local copy: importing values from lib/db would pull the database driver into the browser bundle.
 const isBM = (c: Card): c is Card & ImpactCard => ["Core", "Growth", "Explore"].includes(c.type);
@@ -115,6 +116,15 @@ function CardRow({ card, onChange, ask, cfo }: { card: Card; onChange: (c: Card)
       <div className="flex flex-wrap items-baseline gap-2">
         {card.lens && <span className="eyebrow text-zinc-500">{card.lens}</span>}
         <span className="chip" data-type={card.type}>{card.type}</span>
+        <label className="text-xs text-zinc-500 flex items-center gap-1" title="The year and round this card was drawn in">
+          drawn
+          <select value={card.drawn_year ?? ""} onChange={(e) => patch({ drawn_year: e.target.value ? +e.target.value : null })} aria-label="Year drawn" className="bg-transparent border border-zinc-300 dark:border-zinc-700 rounded px-0.5">
+            <option value="">Y?</option>{Array.from({ length: 10 }, (_, i) => <option key={i} value={i + 1}>Y{i + 1}</option>)}
+          </select>
+          <select value={card.drawn_round ?? ""} onChange={(e) => patch({ drawn_round: e.target.value ? +e.target.value : null })} aria-label="Round drawn" className="bg-transparent border border-zinc-300 dark:border-zinc-700 rounded px-0.5">
+            <option value="">R?</option>{Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>R{i + 1}</option>)}
+          </select>
+        </label>
         <b>{card.title}</b>
         <span className="text-xs text-zinc-500">
           {isBM(card) && <>capex {M(card.capex)} Y{card.start_year} · 10-yr BM profit {M(tenYr)} · </>}AI: {card.recommendation} · {card.partner_verdict}
@@ -153,6 +163,12 @@ function CardRow({ card, onChange, ask, cfo }: { card: Card; onChange: (c: Card)
         <Markdown>{card.partner_reasoning}</Markdown>
         {isBM(card) && <p className="text-xs text-zinc-500 mt-1">Revenue Y1–10: {card.revenue.map(M).join(" · ")}<br />Cost Y1–10: {card.cost.map(M).join(" · ")}</p>}
       </details>
+      {(isBM(card) || card.type === "Analyst") && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-zinc-500">Impact timeline · market cap by year if we play it{card.type === "Analyst" ? " (uses the rating change picked below)" : ""}</summary>
+          <div className="mt-2 overflow-x-auto"><CardTimeline card={card} version={0} analystMove={card.type === "Analyst" ? move : undefined} /></div>
+        </details>
+      )}
       <div className="flex gap-2 flex-wrap items-center">
         {card.status === "selected" && isBM(card) && cfo && <button onClick={book} disabled={booking} className={`${btn} bg-green-700 text-white`}>Book into workbook (audited)</button>}
         {card.type === "Analyst" && card.status !== "booked" && card.status !== "passed" && cfo && (

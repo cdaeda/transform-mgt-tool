@@ -245,3 +245,10 @@ create table if not exists activity (
 );
 create index if not exists activity_created on activity (created_at desc);
 alter table activity enable row level security;
+
+-- The game round we're in (alongside current_year), and which year/round each card was drawn in.
+alter table strategy add column if not exists current_round int not null default 1;
+alter table cards add column if not exists drawn_year int;
+alter table cards add column if not exists drawn_round int;
+-- Borrowing / capital suggestions: where the money would be spent.
+alter table financing_ideas add column if not exists uses jsonb not null default '[]';

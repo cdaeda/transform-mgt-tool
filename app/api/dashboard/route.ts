@@ -100,6 +100,18 @@ export async function GET() {
       teams: snap.teams,
       goal: { year: st.goal_year ?? 3, cap: st.goal_cap ?? 50000 },
       capital: financing.map((f) => ({ id: f.id, name: f.name, status: f.status, year: f.year, scale: f.scale, effect: f.effect, category: f.category })),
+      // Workbook baseline for the multi-year simulator (lib/simulate.ts), plus data-derived defaults.
+      sim: {
+        now: y,
+        segRev: [68, 86, 104].map((r) => snap.seg[r] ?? []), segCost: [128, 146, 164].map((r) => snap.seg[r] ?? []),
+        costBase: snap.years.map((r) => r.costBase), interest: snap.years.map((r) => r.interest),
+        net: snap.years.map((r) => r.net), cash: snap.years.map((r) => r.cash),
+        units: snap.units, analysts: snap.analysts ?? [], shares: now.shares || 1e9, debt: snap.debt ?? 0,
+        avgCapex: Object.fromEntries((["Core", "Growth", "Explore"] as const).map((t) => {
+          const xs = cards.filter((c) => c.type === t && Number(c.capex) > 0).map((c) => Number(c.capex));
+          return [t.toLowerCase(), xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0];
+        })),
+      },
       plan: {
         units: { core: units[0], growth: units[1], explore: units[2] },
         analysts: (snap.analysts ?? []).map((r) => r[i] ?? 0),

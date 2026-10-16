@@ -243,3 +243,8 @@ body {
 .copilot-flash { animation: copilot-flash 1.6s ease-out 1; }
 @keyframes copilot-flash { 0%, 30% { box-shadow: 0 0 0 4px var(--gold), 0 0 32px 4px rgb(201 162 39 / 0.6); } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .copilot-flash { animation: none; } }
+
+/* Presentation "Show in the tool": the part being talked about. */
+.present-hl { outline: 4px solid var(--gold); outline-offset: 4px; border-radius: 12px; animation: present-hl 1.6s ease-in-out 3; scroll-margin: 6rem; }
+@keyframes present-hl { 50% { box-shadow: 0 0 0 10px rgb(201 162 39 / 0.25), 0 0 40px 6px rgb(201 162 39 / 0.45); } }
+@media (prefers-reduced-motion: reduce) { .present-hl { animation: none; } }

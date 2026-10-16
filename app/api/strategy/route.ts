@@ -1,7 +1,7 @@
 import { logActivity } from "@/lib/activity";
 import { pick, sql } from "@/lib/db";
 
-const FIELDS = ["ambition", "core_strategy", "short_term", "opex_plan", "medium_term", "current_year", "h1_target", "h2_target", "h3_target", "h3_partners", "knob", "h1_pct", "h2_pct", "h3_pct", "goal_year", "goal_cap", "analyst_target"] as const;
+const FIELDS = ["ambition", "core_strategy", "short_term", "opex_plan", "medium_term", "current_year", "current_round", "h1_target", "h2_target", "h3_target", "h3_partners", "knob", "h1_pct", "h2_pct", "h3_pct", "goal_year", "goal_cap", "analyst_target"] as const;
 
 export async function GET() {
   return Response.json((await sql`select * from strategy where id = 1`)[0]);
