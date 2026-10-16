@@ -77,7 +77,7 @@ export function CapitalPanel({ version, ask }: { version: number; ask: (t: strin
       <section className="game-card space-y-3" aria-label="Generate strategies">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-xl">Capital playbook</h2>
-          <span className="text-xs text-zinc-500 italic">&ldquo;Be aggressive to the point where it almost feels illegal — but is completely legal.&rdquo;</span>
+          {dial >= 8 && <span className="text-xs text-zinc-500 italic">&ldquo;Be aggressive to the point where it almost feels illegal — but is completely legal.&rdquo;</span>}
         </div>
         <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
           <label className="block">
