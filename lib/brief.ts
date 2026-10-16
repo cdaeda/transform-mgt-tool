@@ -22,7 +22,8 @@ plainly); proceeds (what the $60B does: repay the $900M+ debt, special dividend,
 Terralink launch capital for space and fintech, from the financing plan); returns (what a shareholder gets step by step:
 EPS, share price, dividends, total return - from the earnings outlook); risks (gates: lead-lender consent, facilitator
 ruling on a third-party sale, AI-bubble timing, buyer financing, what must be true); ask (what we ask the board to approve).
-Never invent statistics, buyer names or quotes; [placeholders] where we have no number.`,
+Never invent statistics, buyer names or quotes; [placeholders] where we have no number. The theme line is "The dragon
+is shedding" - use that exact phrase, never "shedding its skin".`,
   },
   "ai-bubble": {
     event: "AI Bubble · update for the Vice-chair (management task #49)",
