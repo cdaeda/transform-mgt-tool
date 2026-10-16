@@ -10,7 +10,7 @@ import { TOOL_SLIDES, type ToolShot, type ToolSlide } from "@/lib/tool-slides";
 import { ComebackChart, useRounds } from "./comeback";
 import { DragonMark } from "./dragon-mark";
 import { useOverview } from "./overview-store";
-import { Infusion, Ladder, WhyPrice, useCards, useInvestorCase } from "./outlook";
+import { Infusion, Ladder, MoneyMap, WhyPrice, useCards, useInvestorCase } from "./outlook";
 import { infusionSlide, whyPriceSlide } from "@/lib/outlook";
 
 type Year = { revenue: number; ebitda: number; net: number; cash: number };
@@ -83,6 +83,7 @@ function Visual({ kind, o, doc, rounds }: { kind: string; o: Overview; doc: Doc;
     );
   }
   if (kind === "infusion" && ic?.sim) return <InfusionVisual />;
+  if (kind === "terralink" && ic) return <TerralinkVisual />;
   if (kind === "why_price" && ic) return <WhyPrice rows={ic.run(ic.saved).rows} o={ic.saved} />;
   if ((kind === "earnings" || kind === "acquisition") && ic) {
     const { rows, roi } = ic.run(ic.saved);
@@ -161,6 +162,7 @@ const LINKS: Record<string, Jump[]> = {
   roadmap: [{ label: "Horizon tuner", hash: "dashboard", sel: '[aria-label="Horizon tuner"]' }, { label: "Strategy knob", hash: "finance/what-if", sel: '[aria-label="Strategy knob"]' }],
   deliver: [{ label: "Year-by-year plan", hash: "capital/lever-planner", sel: '[aria-label="Year-by-year plan"]' }, { label: "Simulator", hash: "finance/simulator", sel: '[aria-label="Simulator"]' }],
   earnings: [{ label: "Earnings outlook", hash: "capital/investor-case", sel: '[aria-label="Investor case"]' }],
+  terralink: [{ label: "Money map", hash: "capital/investor-case", sel: '[aria-label="Terralink money map"]' }, { label: "Comparables", hash: "capital/comparables", sel: '[aria-label="Comparable valuations"]' }],
   infusion: [{ label: "What your capital does", hash: "capital/investor-case", sel: '[aria-label="What your capital does"]' }],
   why_price: [{ label: "Why the sale price", hash: "capital/investor-case", sel: '[aria-label="Why the sale price"]' }],
   acquisition: [{ label: "Investor case", hash: "capital/investor-case", sel: '[aria-label="From revenue to return"]' }, { label: "Exit scenario", hash: "finance/simulator", sel: '[aria-label="Exit scenario"]' }],
@@ -306,7 +308,7 @@ export function DeckView({ embedded = false }: { embedded?: boolean }) {
                     <p className="eyebrow text-amber-700 dark:text-amber-300">{sl.kind.replace("_", " ")}</p>
                     <h2 className="text-3xl sm:text-4xl leading-tight normal-case tracking-normal">{sl.headline}</h2>
                   </div>
-                  <div className={`grid gap-8 items-center ${data && ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ["why_price", "infusion"].includes(sl.kind as string) ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
+                  <div className={`grid gap-8 items-center ${data && ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "terralink", "ask"].includes(sl.kind) ? "lg:grid-cols-[1fr_1.3fr]" : ["why_price", "infusion"].includes(sl.kind as string) ? "lg:grid-cols-[1fr_2fr]" : ""}`}>
                     <ul className="space-y-3 text-xl">
                       {sl.bullets.map((b, j) => <li key={j} className="flex gap-3"><span className="text-amber-600">▸</span><span>{b}</span></li>)}
                     </ul>
@@ -385,4 +387,28 @@ function InfusionVisual() {
   const ic = useInvestorCase(0), cards = useCards();
   if (!ic?.sim) return null;
   return <Infusion sim={ic.sim} o={ic.saved} cards={cards} />;
+}
+
+// The Terralink slide's visual: where the money goes (space vs fintech) and the value pools the comparables show.
+function TerralinkVisual() {
+  const ic = useInvestorCase(0);
+  const [comps, setComps] = useState<{ company: string; grp: string; valuation_usd_b: number | null; basis: string; as_of: string }[]>([]);
+  useEffect(() => void fetch("/api/comps").then((r) => r.json()).then((x) => Array.isArray(x) && setComps(x), () => {}), []);
+  if (!ic) return null;
+  const rows = ic.run(ic.saved).rows;
+  const pools = comps.filter((c) => c.valuation_usd_b !== null).slice(0, 8);
+  return (
+    <div className="space-y-3">
+      {ic.saved.saleYear > 0 && <MoneyMap rows={rows} o={ic.saved} strats={ic.capital} />}
+      {pools.length > 0 && (
+        <div>
+          <p className="eyebrow text-zinc-500">The value pools · comparables</p>
+          <ul className="grid grid-cols-2 gap-x-4 text-sm">
+            {pools.map((c) => <li key={`${c.company}${c.basis}`} className="flex justify-between gap-2"><span className="truncate">{c.company}</span><span className="tabular-nums font-semibold">${c.valuation_usd_b! >= 1 ? `${c.valuation_usd_b!.toLocaleString(undefined, { maximumFractionDigits: 1 })}B` : `${(c.valuation_usd_b! * 1000).toFixed(0)}M`}</span></li>)}
+          </ul>
+          <p className="text-xs text-zinc-500">Dated valuations from Capital › Comparables; not our forecasts.</p>
+        </div>
+      )}
+    </div>
+  );
 }

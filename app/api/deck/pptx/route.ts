@@ -49,6 +49,7 @@ export async function GET() {
   const all = deck.slides.flatMap((s) =>
     s.kind === "acquisition" && why ? [s, { ...why, speaker: s.speaker } as unknown as typeof s]
       : s.kind === "deliver" && inf ? [s, { ...inf, speaker: s.speaker } as unknown as typeof s] : [s]);
+  const comps = await sql<{ company: string; valuation_usd_b: number | null }[]>`select company, valuation_usd_b from comps where batch = (select max(batch) from comps) and valuation_usd_b is not null limit 8`;
   all.forEach((s, k) => {
     const slide = pptx.addSlide();
     const secs = Math.round((s.notes.trim().split(/\s+/).length / 170) * 60);
@@ -66,7 +67,7 @@ export async function GET() {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: GOLD }, line: { color: GOLD } });
     slide.addText(s.kind.replace("_", " ").toUpperCase(), { x: 0.6, y: 0.35, w: 8, h: 0.35, fontFace: FONT, fontSize: 11, color: "8A6414", bold: true, charSpacing: 2 });
     slide.addText(s.headline, { x: 0.6, y: 0.7, w: 12.1, h: 1.1, fontFace: FONT, fontSize: 28, color: INK, bold: true, valign: "top" });
-    const visual = ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "ask", "why_price", "infusion"].includes(s.kind);
+    const visual = ["turnaround", "progress", "results", "earnings", "market_cap", "roadmap", "acquisition", "terralink", "ask", "why_price", "infusion"].includes(s.kind);
     slide.addText(s.bullets.map((b) => ({ text: b, options: { bullet: { code: "25B8" }, breakLine: true } })), {
       x: 0.6, y: 2.0, w: visual ? 5.6 : 12.1, h: 4.6, fontFace: FONT, fontSize: 17, color: INK, valign: "top", paraSpaceAfter: 10,
     });
@@ -101,6 +102,12 @@ export async function GET() {
       // Market cap with the infusion each year, then the final year without it, for contrast.
       const rows = inf.result.rows.slice(-4), last = rows[rows.length - 1];
       bars([...rows.map((r) => ({ label: `Year ${r.year}`, v: r.with.mc.total * 1e6, color: GOLD })), { label: `Y${last.year} without`, v: last.without.mc.total * 1e6, color: "B8AFC9" }], 2.0);
+    }
+    if (s.kind === "terralink") {
+      const sale = ol.rows.find((r) => r.year === out.saleYear);
+      if (sale) bars([{ label: "Space capital", v: sale.launchSpace, color: "0E7490" }, { label: "Fintech capital", v: sale.launchFintech, color: HUE.H3 }], 2.0);
+      if (comps.length) slide.addText([{ text: "THE VALUE POOLS · COMPARABLES\n", options: { fontSize: 10, bold: true, color: GREY } }, ...comps.map((c) => ({ text: `${c.company}: $${c.valuation_usd_b}B\n`, options: { fontSize: 12, color: INK } }))],
+        { x: X, y: 4.1, w: W, h: 2.7, fontFace: FONT, valign: "top" });
     }
     if (s.kind === "turnaround") {
       const yrs = Array.from({ length: Math.max(3, st.current_year + 1) }, (_, j) => j + 1);
